@@ -1,17 +1,18 @@
 /**
+ * =============================================================================
  * RETROPLAY BACKEND API SERVER (Node.js + Express)
- * Catálogo com Jogos Reais + EmulatorJS Stream URLs
+ * Inclui Proxy de ROMs para liberar CORS e evitar erros de rede no navegador
+ * =============================================================================
  */
 
 const express = require('express');
 const cors = require('cors');
-const crypto = require('crypto');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Catálogo Completo de Jogos Reais (ROMs & ISOs via CDN)
+// Catálogo Completo de Jogos Reais (SNES, N64, PS1, PSP, Mega Drive)
 const GAME_CATALOG = {
   // ================= SNES =================
   'snes-mario-world': {
@@ -20,7 +21,8 @@ const GAME_CATALOG = {
     system: 'SNES',
     sizeMb: 1.2,
     ejsCore: 'snes',
-    romUrl: 'https://raw.githubusercontent.com/snes-roms/snes-roms.github.io/main/Super%20Mario%20World.sfc',
+    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Mario%20World%20(USA).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1x7d.jpg',
     isHeavy: false,
   },
   'snes-mario-allstars': {
@@ -30,6 +32,7 @@ const GAME_CATALOG = {
     sizeMb: 1.5,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Mario%20All-Stars%20(USA).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co204m.jpg',
     isHeavy: false,
   },
   'snes-dk-country-1': {
@@ -39,6 +42,7 @@ const GAME_CATALOG = {
     sizeMb: 4.0,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Donkey%20Kong%20Country%20(USA).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co22tw.jpg',
     isHeavy: false,
   },
   'snes-dk-country-2': {
@@ -48,6 +52,7 @@ const GAME_CATALOG = {
     sizeMb: 4.2,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Donkey%20Kong%20Country%202%20-%20Diddy\'s%20Kong%20Quest%20(USA).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co22tx.jpg',
     isHeavy: false,
   },
   'snes-dk-country-3': {
@@ -57,6 +62,7 @@ const GAME_CATALOG = {
     sizeMb: 4.5,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Donkey%20Kong%20Country%203%20-%20Dixie%20Kong\'s%20Double%20Trouble!%20(USA).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co22ty.jpg',
     isHeavy: false,
   },
   'snes-indiana-jones': {
@@ -66,6 +72,7 @@ const GAME_CATALOG = {
     sizeMb: 2.0,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Indiana%20Jones\'%20Greatest%20Adventures%20(USA).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1x9r.jpg',
     isHeavy: false,
   },
   'snes-the-mask': {
@@ -75,6 +82,7 @@ const GAME_CATALOG = {
     sizeMb: 1.6,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/The%20Mask%20(USA).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co24ef.jpg',
     isHeavy: false,
   },
   'snes-bomberman-1': {
@@ -84,6 +92,7 @@ const GAME_CATALOG = {
     sizeMb: 1.0,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Bomberman%20(USA).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co27p4.jpg',
     isHeavy: false,
   },
   'snes-bomberman-2': {
@@ -93,6 +102,7 @@ const GAME_CATALOG = {
     sizeMb: 1.2,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Bomberman%202%20(USA).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co27p5.jpg',
     isHeavy: false,
   },
   'snes-bomberman-3': {
@@ -102,6 +112,7 @@ const GAME_CATALOG = {
     sizeMb: 1.5,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Bomberman%203%20(Japan).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co27p6.jpg',
     isHeavy: false,
   },
   'snes-bomberman-4': {
@@ -111,6 +122,7 @@ const GAME_CATALOG = {
     sizeMb: 1.8,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Bomberman%204%20(Japan).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co27p7.jpg',
     isHeavy: false,
   },
   'snes-bomberman-5': {
@@ -120,6 +132,7 @@ const GAME_CATALOG = {
     sizeMb: 2.0,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Bomberman%205%20(Japan).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co27p8.jpg',
     isHeavy: false,
   },
   'snes-mario-kart': {
@@ -129,15 +142,7 @@ const GAME_CATALOG = {
     sizeMb: 1.0,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Mario%20Kart%20(USA).sfc',
-    isHeavy: false,
-  },
-  'snes-sf2-turbo': {
-    id: 'snes-sf2-turbo',
-    title: 'Street Fighter II Turbo',
-    system: 'SNES',
-    sizeMb: 2.5,
-    ejsCore: 'snes',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Street%20Fighter%20II%20Turbo%20(USA).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1x7f.jpg',
     isHeavy: false,
   },
   'snes-chrono-trigger': {
@@ -147,6 +152,7 @@ const GAME_CATALOG = {
     sizeMb: 4.0,
     ejsCore: 'snes',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Chrono%20Trigger%20(USA).sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co204b.jpg',
     isHeavy: false,
   },
 
@@ -158,6 +164,7 @@ const GAME_CATALOG = {
     sizeMb: 8.0,
     ejsCore: 'n64',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/n64/Super%20Mario%2064%20(USA).z64',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co204h.jpg',
     isHeavy: true,
   },
   'n64-mario-kart-64': {
@@ -167,6 +174,7 @@ const GAME_CATALOG = {
     sizeMb: 12.0,
     ejsCore: 'n64',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/n64/Mario%20Kart%2064%20(USA).z64',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1x7e.jpg',
     isHeavy: true,
   },
   'n64-007-goldeneye': {
@@ -176,6 +184,7 @@ const GAME_CATALOG = {
     sizeMb: 12.0,
     ejsCore: 'n64',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/n64/GoldenEye%20007%20(USA).z64',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co204p.jpg',
     isHeavy: true,
   },
   'n64-zelda-oot': {
@@ -185,15 +194,7 @@ const GAME_CATALOG = {
     sizeMb: 32.0,
     ejsCore: 'n64',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/n64/Legend%20of%20Zelda,%20The%20-%20Ocarina%20of%20Time%20(USA).z64',
-    isHeavy: true,
-  },
-  'n64-smash-bros': {
-    id: 'n64-smash-bros',
-    title: 'Super Smash Bros.',
-    system: 'N64',
-    sizeMb: 16.0,
-    ejsCore: 'n64',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/n64/Super%20Smash%20Bros.%20(USA).z64',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1vcp.jpg',
     isHeavy: true,
   },
 
@@ -205,24 +206,7 @@ const GAME_CATALOG = {
     sizeMb: 75.0,
     ejsCore: 'psx',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
-    isHeavy: true,
-  },
-  'ps1-bomberman-world': {
-    id: 'ps1-bomberman-world',
-    title: 'Bomberman World',
-    system: 'PS1',
-    sizeMb: 120.0,
-    ejsCore: 'psx',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
-    isHeavy: true,
-  },
-  'ps1-gta-2': {
-    id: 'ps1-gta-2',
-    title: 'Grand Theft Auto 2',
-    system: 'PS1',
-    sizeMb: 350.0,
-    ejsCore: 'psx',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co27p9.jpg',
     isHeavy: true,
   },
   'ps1-resident-evil-1': {
@@ -232,24 +216,7 @@ const GAME_CATALOG = {
     sizeMb: 380.0,
     ejsCore: 'psx',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
-    isHeavy: true,
-  },
-  'ps1-tekken-3': {
-    id: 'ps1-tekken-3',
-    title: 'Tekken 3',
-    system: 'PS1',
-    sizeMb: 345.0,
-    ejsCore: 'psx',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
-    isHeavy: true,
-  },
-  'ps1-crash-3': {
-    id: 'ps1-crash-3',
-    title: 'Crash Bandicoot 3: Warped',
-    system: 'PS1',
-    sizeMb: 300.0,
-    ejsCore: 'psx',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co204n.jpg',
     isHeavy: true,
   },
 
@@ -261,65 +228,12 @@ const GAME_CATALOG = {
     sizeMb: 850.0,
     ejsCore: 'psp',
     romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
-    isHeavy: true,
-  },
-  'psp-gta-san-andreas': {
-    id: 'psp-gta-san-andreas',
-    title: 'GTA: Vice City Stories',
-    system: 'PSP',
-    sizeMb: 860.0,
-    ejsCore: 'psp',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
-    isHeavy: true,
-  },
-  'psp-resident-evil-2': {
-    id: 'psp-resident-evil-2',
-    title: 'Resident Evil 2 (PSP Edition)',
-    system: 'PSP',
-    sizeMb: 700.0,
-    ejsCore: 'psp',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
-    isHeavy: true,
-  },
-  'psp-resident-evil-3': {
-    id: 'psp-resident-evil-3',
-    title: 'Resident Evil 3: Nemesis (PSP Edition)',
-    system: 'PSP',
-    sizeMb: 680.0,
-    ejsCore: 'psp',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
-    isHeavy: true,
-  },
-  'psp-def-jam': {
-    id: 'psp-def-jam',
-    title: 'Def Jam: Fight for NY - The Takeover',
-    system: 'PSP',
-    sizeMb: 480.0,
-    ejsCore: 'psp',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
-    isHeavy: true,
-  },
-  'psp-dbz-tenkaichi': {
-    id: 'psp-dbz-tenkaichi',
-    title: 'Dragon Ball Z: Tenkaichi Tag Team',
-    system: 'PSP',
-    sizeMb: 900.0,
-    ejsCore: 'psp',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
-    isHeavy: true,
-  },
-  'psp-tony-hawk': {
-    id: 'psp-tony-hawk',
-    title: 'Tony Hawk\'s Underground 2 Remix',
-    system: 'PSP',
-    sizeMb: 520.0,
-    ejsCore: 'psp',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
+    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co204l.jpg',
     isHeavy: true,
   },
 };
 
-// Mock User Database
+// Banco de Dados em Memória de Usuários
 const USERS_DB = {
   'user_free_123': {
     id: 'user_free_123',
@@ -342,17 +256,19 @@ function checkDailyReset(user) {
   }
 }
 
-// ROUTE: Proxy de ROMs para liberar CORS e evitar "Erro de rede"
+// ROTA PROXY: Elimina bloqueios de CORS e impede o "Erro de Rede" no Chrome
 app.get('/api/proxy-rom', async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) {
-    return res.status(400).json({ error: 'URL do jogo não fornecida.' });
+    return res.status(400).json({ error: 'URL da ROM não informada.' });
   }
+
   try {
     const response = await fetch(targetUrl);
     if (!response.ok) {
-      return res.status(response.status).json({ error: `Erro ao baixar ROM (${response.status})` });
+      return res.status(response.status).json({ error: `Falha ao baixar ROM (${response.status})` });
     }
+
     const contentType = response.headers.get('content-type') || 'application/octet-stream';
     const buffer = await response.arrayBuffer();
 
@@ -362,11 +278,11 @@ app.get('/api/proxy-rom', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     return res.send(Buffer.from(buffer));
   } catch (err) {
-    return res.status(500).json({ error: 'Erro de conexão no servidor de proxy.' });
+    return res.status(500).json({ error: 'Erro de comunicação no servidor de proxy.' });
   }
 });
 
-// API Routes
+// APIs Rest do Sistema
 app.get('/api/user/session-check', (req, res) => {
   const userId = req.headers['x-user-id'] || 'user_free_123';
   const user = USERS_DB[userId] || USERS_DB['user_free_123'];
@@ -403,6 +319,7 @@ app.get('/api/games', (req, res) => {
     isHeavy: game.isHeavy,
     ejsCore: game.ejsCore,
     demoRomUrl: game.romUrl,
+    coverUrl: game.coverUrl,
   }));
   return res.json({ catalog: gamesList });
 });
@@ -447,5 +364,5 @@ app.post('/api/saves/:gameId/slot/:slotIndex', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 RETROPLAY BACKEND RUNNING ON PORT: ${PORT}`);
+  console.log(`🚀 RETROPLAY BACKEND ONLINE NA PORTA: ${PORT}`);
 });
