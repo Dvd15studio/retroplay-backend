@@ -1,18 +1,20 @@
 /**
  * =============================================================================
  * RETROPLAY BACKEND API SERVER (Node.js + Express)
- * Inclui Proxy de ROMs em Stream com Suporte a CORS, Streaming de Arquivos Grandes
- * e Validação do Catálogo
+ * Proxy de ROMs com Suporte a Stream Nativo, Seguidor de Redirecionamentos (301/302),
+ * Headers de CORS e Catálogo Validado.
  * =============================================================================
  */
 
 const express = require('express');
 const cors = require('cors');
-const { Readable } = require('stream');
+const https = require('https');
+const http = require('http');
+const { URL } = require('url');
 
 const app = express();
 
-// Configuração completa de CORS
+// Configuração de CORS completa
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
@@ -22,12 +24,12 @@ app.options('*', cors());
 
 app.use(express.json());
 
-// Rota de Healthcheck / Teste de Status
+// Rota de Healthcheck / Status do Servidor
 app.get('/', (req, res) => {
   return res.send('🚀 RETROPLAY BACKEND ONLINE!');
 });
 
-// Catálogo Completo com Capas Oficiais e ROMs Validadas
+// Catálogo com capas oficiais do IGDB e links de ROMs validados no Internet Archive
 const GAME_CATALOG = {
   // ================= SNES =================
   'snes-mario-world': {
@@ -178,7 +180,7 @@ const GAME_CATALOG = {
   },
 };
 
-// Banco em Memória de Usuários
+// Banco de Dados em Memória (Sessões e Saves)
 const USERS_DB = {
   'user_free_123': {
     id: 'user_free_123',
@@ -201,42 +203,83 @@ function checkDailyReset(user) {
   }
 }
 
-// ROTA PROXY COM STREAMING: Evita estouro de memória e remove bloqueios de CORS
-app.get('/api/proxy-rom', async (req, res) => {
+/**
+ * Função Auxiliar de Proxy com Suporte Nativo a Redirecionamentos (301/302) e Streaming
+ */
+function fetchStreamWithRedirects(targetUrl, res, maxRedirects = 5) {
+  if (maxRedirects === 0) {
+    console.error('[PROXY ERROR] Excedido limite de redirecionamentos');
+    return res.status(500).json({ error: 'Muitos redirecionamentos no servidor remoto.' });
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(targetUrl);
+  } catch (e) {
+    console.error(`[PROXY ERROR] URL inválida: ${targetUrl}`);
+    return res.status(400).json({ error: 'URL da ROM inválida.' });
+  }
+
+  const client = parsedUrl.protocol === 'https:' ? https : http;
+
+  const requestOptions = {
+    hostname: parsedUrl.hostname,
+    port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+    path: parsedUrl.pathname + parsedUrl.search,
+    method: 'GET',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+    },
+  };
+
+  const req = client.request(requestOptions, (remoteRes) => {
+    // Trata Redirecionamentos HTTP 301, 302, 303, 307, 308
+    if ([301, 302, 303, 307, 308].includes(remoteRes.statusCode) && remoteRes.headers.location) {
+      const redirectUrl = new URL(remoteRes.headers.location, targetUrl).href;
+      console.log(`[PROXY REDIRECT ${remoteRes.statusCode}] -> ${redirectUrl}`);
+      return fetchStreamWithRedirects(redirectUrl, res, maxRedirects - 1);
+    }
+
+    if (remoteRes.statusCode < 200 || remoteRes.statusCode >= 300) {
+      console.error(`[PROXY ERROR] HTTP ${remoteRes.statusCode} ao baixar: ${targetUrl}`);
+      return res.status(remoteRes.statusCode).json({ error: `Falha ao baixar ROM (${remoteRes.statusCode})` });
+    }
+
+    // Define Headers de Resposta para o Navegador
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Content-Type', remoteRes.headers['content-type'] || 'application/octet-stream');
+    if (remoteRes.headers['content-length']) {
+      res.setHeader('Content-Length', remoteRes.headers['content-length']);
+    }
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+
+    // Transmite os bytes por Stream diretamente sem estourar a memória RAM
+    remoteRes.pipe(res);
+  });
+
+  req.on('error', (err) => {
+    console.error('[PROXY EXCEPTION]:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message || 'Erro na transmissão do proxy.' });
+    }
+  });
+
+  req.end();
+}
+
+// ROTA PROXY COM STREAMING E REDIRECT
+app.get('/api/proxy-rom', (req, res) => {
   const targetUrl = req.query.url;
+  console.log('===================================================');
+  console.log('[PROXY REQUEST RECEIVED]:', targetUrl);
+
   if (!targetUrl) {
     return res.status(400).json({ error: 'URL da ROM não informada.' });
   }
 
-  try {
-    const response = await fetch(targetUrl);
-    if (!response.ok) {
-      console.error(`[PROXY ERROR] HTTP ${response.status} ao baixar: ${targetUrl}`);
-      return res.status(response.status).json({ error: `Falha ao baixar ROM (${response.status})` });
-    }
-
-    const contentType = response.headers.get('content-type') || 'application/octet-stream';
-    const contentLength = response.headers.get('content-length');
-
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Content-Type', contentType);
-    if (contentLength) {
-      res.setHeader('Content-Length', contentLength);
-    }
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-
-    // Transmissão via Stream (evita estourar a memória RAM para arquivos grandes como PSP/PS1)
-    if (response.body && typeof response.body.getReader === 'function') {
-      Readable.fromWeb(response.body).pipe(res);
-    } else {
-      const arrayBuffer = await response.arrayBuffer();
-      res.send(Buffer.from(arrayBuffer));
-    }
-  } catch (err) {
-    console.error('[PROXY EXCEPTION]:', err);
-    return res.status(500).json({ error: err.message || 'Erro no servidor de proxy.' });
-  }
+  fetchStreamWithRedirects(targetUrl, res);
 });
 
 // REST APIs
@@ -321,5 +364,7 @@ app.post('/api/saves/:gameId/slot/:slotIndex', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
+  console.log(`===================================================`);
   console.log(`🚀 RETROPLAY BACKEND ONLINE NA PORTA: ${PORT}`);
+  console.log(`===================================================`);
 });
