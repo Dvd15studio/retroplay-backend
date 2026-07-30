@@ -1,10 +1,3 @@
-/**
- * =============================================================================
- * RETROPLAY BACKEND API SERVER (Node.js + Express)
- * Configurado com Cloudflare R2 Próprio (ROM .smc + Capa JPG)
- * =============================================================================
- */
-
 const express = require('express');
 const cors = require('cors');
 const https = require('https');
@@ -13,7 +6,6 @@ const { URL } = require('url');
 
 const app = express();
 
-// Configuração de CORS Global
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
@@ -22,14 +14,12 @@ app.use(cors({
 
 app.use(express.json());
 
-// Rota de Healthcheck / Status do Servidor
 app.get('/', (req, res) => {
   return res.send('🚀 RETROPLAY BACKEND ONLINE - CLOUDFLARE R2 PRÓPRIO CONECTADO!');
 });
 
-/**
- * CATÁLOGOS COM SEUS LINKS DIRETO DO CLOUDFLARE R2
- */
+const CLOUDFLARE_R2_BASE = 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev';
+
 const GAME_CATALOG = {
   'snes-mario-world': {
     id: 'snes-mario-world',
@@ -37,13 +27,32 @@ const GAME_CATALOG = {
     system: 'SNES',
     sizeMb: 0.5,
     ejsCore: 'snes',
-    romUrl: 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev/Super%20Mario%20World%20(U)%20%5B!%5D.smc',
-    coverUrl: 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev/super-mario-world.jpg',
+    romUrl: `${CLOUDFLARE_R2_BASE}/Super%20Mario%20World%20(U)%20%5B!%5D.smc`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/super-mario-world.jpg`,
+    isHeavy: false,
+  },
+  'snes-donkey-kong': {
+    id: 'snes-donkey-kong',
+    title: 'Donkey Kong Country',
+    system: 'SNES',
+    sizeMb: 4.0,
+    ejsCore: 'snes',
+    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/Donkey%20Kong%20Country%20(U)%20(V1.2)%20%5B!%5D.smc`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/donkey-kong-country.jpg`,
+    isHeavy: false,
+  },
+  'md-sonic-2': {
+    id: 'md-sonic-2',
+    title: 'Sonic The Hedgehog 2',
+    system: 'MEGADRIVE',
+    sizeMb: 1.0,
+    ejsCore: 'segaMD',
+    romUrl: `${CLOUDFLARE_R2_BASE}/MEGADRIVE/Sonic%20The%20Hedgehog%202%20(W)%20(REV01)%20%5B!%5D.md`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGADRIVE/sonic-2.jpg`,
     isHeavy: false,
   }
 };
 
-// Mock de Sessão do Usuário
 const USERS_DB = {
   'user_free_123': {
     id: 'user_free_123',
@@ -64,9 +73,6 @@ function checkDailyReset(user) {
   }
 }
 
-/**
- * PROXY STREAMING PARA O CLOUDFLARE R2 (Aceita HEAD, GET e Range)
- */
 function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
   if (maxRedirects === 0) {
     console.error('[PROXY ERROR] Excedido limite de redirecionamentos');
@@ -145,6 +151,35 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
 
   remoteReq.end();
 }
+
+app.get('/api/proxy-image', (req, res) => {
+  const imageUrl = req.query.url;
+  if (!imageUrl) {
+    return res.status(400).json({ error: 'URL da imagem não informada.' });
+  }
+
+  try {
+    const parsedUrl = new URL(imageUrl);
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+
+    client.get(imageUrl, (remoteRes) => {
+      if (remoteRes.statusCode !== 200) {
+        return res.status(remoteRes.statusCode).end();
+      }
+
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'public, max-age=604800'); // Cache for 7 days
+      if (remoteRes.headers['content-type']) {
+        res.setHeader('Content-Type', remoteRes.headers['content-type']);
+      }
+      remoteRes.pipe(res);
+    }).on('error', () => {
+      return res.status(500).end();
+    });
+  } catch (e) {
+    return res.status(400).json({ error: 'URL inválida.' });
+  }
+});
 
 app.all('/api/proxy-rom', (req, res) => {
   if (req.method === 'OPTIONS') {
