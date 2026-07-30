@@ -22,16 +22,6 @@ app.get('/', (req, res) => {
 const CLOUDFLARE_R2_BASE = 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev';
 
 const GAME_CATALOG = {
-  'snes-mario-world': {
-    id: 'snes-mario-world',
-    title: 'Super Mario World',
-    system: 'SNES',
-    sizeMb: 0.5,
-    ejsCore: 'snes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/Super%20Mario%20World%20(U)%20%5B!%5D.smc`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/super-mario-world.jpg`,
-    isHeavy: false,
-  },
   'nes-mario-25th': {
     id: 'nes-mario-25th',
     title: '25th Anniversary Super Mario Bros.',
@@ -40,6 +30,16 @@ const GAME_CATALOG = {
     ejsCore: 'nes',
     romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).nes`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).png`,
+    isHeavy: false,
+  },
+  'snes-mario-world': {
+    id: 'snes-mario-world',
+    title: 'Super Mario World',
+    system: 'SNES',
+    sizeMb: 0.5,
+    ejsCore: 'snes',
+    romUrl: `${CLOUDFLARE_R2_BASE}/Super%20Mario%20World%20(U)%20%5B!%5D.smc`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/super-mario-world.jpg`,
     isHeavy: false,
   }
 };
@@ -64,19 +64,44 @@ function checkDailyReset(user) {
   }
 }
 
+/**
+ * Sanitiza e limpa a URL garantindo compatibilidade exata com o Cloudflare R2
+ */
+function sanitizeR2Url(rawUrl) {
+  if (!rawUrl) return '';
+  try {
+    let decoded = rawUrl;
+    // Decodifica %2520, %2C etc. repetidamente até obter a string pura
+    while (decoded.includes('%')) {
+      const prev = decoded;
+      try {
+        decoded = decodeURIComponent(decoded);
+      } catch (e) {
+        break;
+      }
+      if (decoded === prev) break;
+    }
+    // Aplica encodeURI na string limpa (converte apenas espaços em %20 e mantém vírgulas/parênteses)
+    return encodeURI(decoded);
+  } catch (err) {
+    return rawUrl;
+  }
+}
+
 function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
   if (maxRedirects === 0) {
     console.error('[PROXY ERROR] Excedido limite de redirecionamentos');
     return res.status(500).json({ error: 'Muitos redirecionamentos no servidor R2.' });
   }
 
+  const cleanUrl = sanitizeR2Url(targetUrl);
+  console.log(`[PROXY FETCHING FROM R2]: ${cleanUrl}`);
+
   let parsedUrl;
   try {
-    // Sanitiza e garante codificação perfeita de caracteres especiais da URL
-    const cleanUrl = encodeURI(decodeURI(targetUrl));
     parsedUrl = new URL(cleanUrl);
   } catch (e) {
-    console.error(`[PROXY ERROR] URL inválida: ${targetUrl}`, e);
+    console.error(`[PROXY ERROR] URL inválida: ${cleanUrl}`, e);
     return res.status(400).json({ error: 'URL da ROM inválida.' });
   }
 
@@ -101,7 +126,7 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
 
   const remoteReq = client.request(requestOptions, (remoteRes) => {
     if ([301, 302, 303, 307, 308].includes(remoteRes.statusCode) && remoteRes.headers.location) {
-      const redirectUrl = new URL(remoteRes.headers.location, targetUrl).href;
+      const redirectUrl = new URL(remoteRes.headers.location, cleanUrl).href;
       return proxyRomStream(redirectUrl, req, res, maxRedirects - 1);
     }
 
@@ -154,8 +179,6 @@ app.all('/api/proxy-rom', (req, res) => {
   }
 
   const targetUrl = req.query.url;
-  console.log(`[PROXY REQUEST ${req.method}]: ${targetUrl}`);
-
   if (!targetUrl) {
     return res.status(400).json({ error: 'URL da ROM não informada.' });
   }
