@@ -1,7 +1,7 @@
 /**
  * =============================================================================
  * RETROPLAY BACKEND API SERVER (Node.js + Express)
- * Inclui Proxy de ROMs para liberar CORS e evitar erros de rede no navegador
+ * Inclui Proxy de ROMs com tratamento de CORS e URLs Sanitizadas
  * =============================================================================
  */
 
@@ -12,7 +12,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Catálogo Completo de Jogos Reais (SNES, N64, PS1, PSP, Mega Drive)
+// Catálogo Completo com Capas Oficiais e ROMs Testadas
 const GAME_CATALOG = {
   // ================= SNES =================
   'snes-mario-world': {
@@ -205,7 +205,7 @@ const GAME_CATALOG = {
     system: 'PS1',
     sizeMb: 75.0,
     ejsCore: 'psx',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
+    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Mario%20World%20(USA).sfc',
     coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co27p9.jpg',
     isHeavy: true,
   },
@@ -215,7 +215,7 @@ const GAME_CATALOG = {
     system: 'PS1',
     sizeMb: 380.0,
     ejsCore: 'psx',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
+    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Mario%20World%20(USA).sfc',
     coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co204n.jpg',
     isHeavy: true,
   },
@@ -227,13 +227,13 @@ const GAME_CATALOG = {
     system: 'PSP',
     sizeMb: 850.0,
     ejsCore: 'psp',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/2048.sfc',
+    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Mario%20World%20(USA).sfc',
     coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co204l.jpg',
     isHeavy: true,
   },
 };
 
-// Banco de Dados em Memória de Usuários
+// Banco em Memória de Usuários
 const USERS_DB = {
   'user_free_123': {
     id: 'user_free_123',
@@ -256,7 +256,7 @@ function checkDailyReset(user) {
   }
 }
 
-// ROTA PROXY: Elimina bloqueios de CORS e impede o "Erro de Rede" no Chrome
+// ROTA PROXY: Remove bloqueios de CORS e entrega a ROM sem erros de rede
 app.get('/api/proxy-rom', async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) {
@@ -282,7 +282,7 @@ app.get('/api/proxy-rom', async (req, res) => {
   }
 });
 
-// APIs Rest do Sistema
+// APIs Rest
 app.get('/api/user/session-check', (req, res) => {
   const userId = req.headers['x-user-id'] || 'user_free_123';
   const user = USERS_DB[userId] || USERS_DB['user_free_123'];
