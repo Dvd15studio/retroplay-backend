@@ -20,7 +20,7 @@ const GAME_CATALOG = {
     system: 'SNES',
     sizeMb: 1.2,
     ejsCore: 'snes',
-    romUrl: 'https://cdn.emulatorjs.org/stable/data/roms/snes/Super%20Mario%20World%20(USA).sfc',
+    romUrl: 'https://raw.githubusercontent.com/snes-roms/snes-roms.github.io/main/Super%20Mario%20World.sfc',
     isHeavy: false,
   },
   'snes-mario-allstars': {
@@ -341,6 +341,30 @@ function checkDailyReset(user) {
     user.adBoostsUsedToday = 0;
   }
 }
+
+// ROUTE: Proxy de ROMs para liberar CORS e evitar "Erro de rede"
+app.get('/api/proxy-rom', async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'URL do jogo não fornecida.' });
+  }
+  try {
+    const response = await fetch(targetUrl);
+    if (!response.ok) {
+      return res.status(response.status).json({ error: `Erro ao baixar ROM (${response.status})` });
+    }
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    const buffer = await response.arrayBuffer();
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(Buffer.from(buffer));
+  } catch (err) {
+    return res.status(500).json({ error: 'Erro de conexão no servidor de proxy.' });
+  }
+});
 
 // API Routes
 app.get('/api/user/session-check', (req, res) => {
