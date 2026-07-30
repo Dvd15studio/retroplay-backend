@@ -6,6 +6,7 @@ const { URL } = require('url');
 
 const app = express();
 
+// Enable CORS for all routes and headers
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
@@ -27,28 +28,18 @@ const GAME_CATALOG = {
     system: 'SNES',
     sizeMb: 0.5,
     ejsCore: 'snes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/Super Mario World (U) [!].smc`,
+    romUrl: `${CLOUDFLARE_R2_BASE}/Super%20Mario%20World%20(U)%20%5B!%5D.smc`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/super-mario-world.jpg`,
     isHeavy: false,
   },
-  'snes-donkey-kong': {
-    id: 'snes-donkey-kong',
-    title: 'Donkey Kong Country',
-    system: 'SNES',
-    sizeMb: 4.0,
-    ejsCore: 'snes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/Donkey Kong Country (U) (V1.2) [!].smc`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/super-mario-world.jpg`,
-    isHeavy: false,
-  },
-  'md-sonic-2': {
-    id: 'md-sonic-2',
-    title: 'Sonic The Hedgehog 2',
-    system: 'MEGADRIVE',
-    sizeMb: 1.0,
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGADRIVE/Sonic The Hedgehog 2 (W) (REV01) [!].md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/super-mario-world.jpg`,
+  'nes-mario-25th': {
+    id: 'nes-mario-25th',
+    title: '25th Anniversary Super Mario Bros.',
+    system: 'NES',
+    sizeMb: 0.1,
+    ejsCore: 'nes',
+    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).nes`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).png`,
     isHeavy: false,
   }
 };
@@ -81,16 +72,11 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
 
   let parsedUrl;
   try {
-    // Limpa codificação dupla de caracteres (%2520 -> %20)
-    let cleanUrl = targetUrl;
-    try {
-      cleanUrl = decodeURIComponent(targetUrl);
-    } catch (e) {
-      cleanUrl = targetUrl;
-    }
+    // Sanitiza e garante codificação perfeita de caracteres especiais da URL
+    const cleanUrl = encodeURI(decodeURI(targetUrl));
     parsedUrl = new URL(cleanUrl);
   } catch (e) {
-    console.error(`[PROXY ERROR] URL inválida: ${targetUrl}`);
+    console.error(`[PROXY ERROR] URL inválida: ${targetUrl}`, e);
     return res.status(400).json({ error: 'URL da ROM inválida.' });
   }
 
