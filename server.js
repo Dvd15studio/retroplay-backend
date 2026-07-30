@@ -6,7 +6,7 @@ const { URL } = require('url');
 
 const app = express();
 
-// Enable CORS for all routes and headers
+// Habilita CORS completo para requisições do Flutter Web e Vercel
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
@@ -16,9 +16,10 @@ app.use(cors({
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  return res.send('🚀 RETROPLAY BACKEND ONLINE - CLOUDFLARE R2 PRÓPRIO CONECTADO!');
+  return res.send('🚀 RETROPLAY BACKEND ONLINE - PROXY DE ROMS E CAPAS CONECTADO!');
 });
 
+// URL Base pública do seu Cloudflare R2
 const CLOUDFLARE_R2_BASE = 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev';
 
 const GAME_CATALOG = {
@@ -41,37 +42,37 @@ const GAME_CATALOG = {
     romUrl: `${CLOUDFLARE_R2_BASE}/Super%20Mario%20World%20(U)%20%5B!%5D.smc`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/super-mario-world.jpg`,
     isHeavy: false,
-  }
-};
-
-const USERS_DB = {
-  'user_free_123': {
-    id: 'user_free_123',
-    name: 'Gamer Gratuito',
-    isVip: false,
-    secondsRemainingToday: 7200,
-    adBoostsUsedToday: 0,
-    lastResetDate: new Date().toISOString().split('T')[0],
   },
-};
-
-function checkDailyReset(user) {
-  const today = new Date().toISOString().split('T')[0];
-  if (user.lastResetDate !== today) {
-    user.lastResetDate = today;
-    user.secondsRemainingToday = user.isVip ? 999999 : 7200;
-    user.adBoostsUsedToday = 0;
+  'snes-aladdin': {
+    id: 'snes-aladdin',
+    title: 'Disney\'s Aladdin (SNES)',
+    system: 'SNES',
+    sizeMb: 1.0,
+    ejsCore: 'snes',
+    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Aladdin%20(USA).sfc`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Aladdin%20(USA).png`,
+    isHeavy: false,
+  },
+  'md-aladdin': {
+    id: 'md-aladdin',
+    title: 'Disney\'s Aladdin (Mega Drive)',
+    system: 'MEGADRIVE',
+    sizeMb: 2.0,
+    ejsCore: 'segaMD',
+    romUrl: `${CLOUDFLARE_R2_BASE}/MEGADRIVE/ROMS/Aladdin%20(USA).md`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGADRIVE/CAPAS/Aladdin%20(USA).png`,
+    isHeavy: false,
   }
-}
+};
 
 /**
- * Sanitiza e limpa a URL garantindo compatibilidade exata com o Cloudflare R2
+ * Sanitiza e limpa a URL garantindo compatibilidade com o Cloudflare R2
  */
 function sanitizeR2Url(rawUrl) {
   if (!rawUrl) return '';
   try {
     let decoded = rawUrl;
-    // Decodifica %2520, %2C etc. repetidamente até obter a string pura
+    // Decodifica repetidamente %2520, %2C, etc.
     while (decoded.includes('%')) {
       const prev = decoded;
       try {
@@ -81,13 +82,16 @@ function sanitizeR2Url(rawUrl) {
       }
       if (decoded === prev) break;
     }
-    // Aplica encodeURI na string limpa (converte apenas espaços em %20 e mantém vírgulas/parênteses)
+    // Aplica encodeURI na string limpa
     return encodeURI(decoded);
   } catch (err) {
     return rawUrl;
   }
 }
 
+/**
+ * Realiza o streaming da ROM ou Capa direto do Cloudflare R2 com bypass de CORS
+ */
 function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
   if (maxRedirects === 0) {
     console.error('[PROXY ERROR] Excedido limite de redirecionamentos');
@@ -102,7 +106,7 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
     parsedUrl = new URL(cleanUrl);
   } catch (e) {
     console.error(`[PROXY ERROR] URL inválida: ${cleanUrl}`, e);
-    return res.status(400).json({ error: 'URL da ROM inválida.' });
+    return res.status(400).json({ error: 'URL da mídia inválida.' });
   }
 
   const client = parsedUrl.protocol === 'https:' ? https : http;
@@ -180,24 +184,10 @@ app.all('/api/proxy-rom', (req, res) => {
 
   const targetUrl = req.query.url;
   if (!targetUrl) {
-    return res.status(400).json({ error: 'URL da ROM não informada.' });
+    return res.status(400).json({ error: 'URL não informada.' });
   }
 
   proxyRomStream(targetUrl, req, res);
-});
-
-app.get('/api/user/session-check', (req, res) => {
-  const userId = req.headers['x-user-id'] || 'user_free_123';
-  const user = USERS_DB[userId] || USERS_DB['user_free_123'];
-  checkDailyReset(user);
-  return res.json({
-    userId: user.id,
-    isVip: user.isVip,
-    secondsRemainingToday: user.secondsRemainingToday,
-    adBoostsUsedToday: user.adBoostsUsedToday,
-    maxAdBoostsAllowed: 3,
-    canWatchAdForMoreTime: !user.isVip && user.adBoostsUsedToday < 3,
-  });
 });
 
 app.get('/api/games', (req, res) => {
@@ -218,6 +208,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`===================================================`);
   console.log(`🚀 RETROPLAY BACKEND ONLINE NA PORTA: ${PORT}`);
-  console.log(`☁️ SERVIDOR CONECTADO AO CLOUDFLARE R2 PRÓPRIO!`);
+  console.log(`☁️ PROXY DE ROMS E CAPAS DO CLOUDFLARE R2 PRONTO!`);
   console.log(`===================================================`);
 });
