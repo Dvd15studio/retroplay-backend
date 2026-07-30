@@ -14,13 +14,12 @@ const { URL } = require('url');
 
 const app = express();
 
-// Configuração de CORS completa
+// Configuração de CORS compatível com Express 5 / Node v24
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'x-user-id']
 }));
-app.options('*', cors());
 
 app.use(express.json());
 
