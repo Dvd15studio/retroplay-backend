@@ -27,7 +27,7 @@ const GAME_CATALOG = {
     system: 'SNES',
     sizeMb: 0.5,
     ejsCore: 'snes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/Super%20Mario%20World%20(U)%20%5B!%5D.smc`,
+    romUrl: `${CLOUDFLARE_R2_BASE}/Super Mario World (U) [!].smc`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/super-mario-world.jpg`,
     isHeavy: false,
   },
@@ -37,8 +37,8 @@ const GAME_CATALOG = {
     system: 'SNES',
     sizeMb: 4.0,
     ejsCore: 'snes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/Donkey%20Kong%20Country%20(U)%20(V1.2)%20%5B!%5D.smc`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/donkey-kong-country.jpg`,
+    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/Donkey Kong Country (U) (V1.2) [!].smc`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/super-mario-world.jpg`,
     isHeavy: false,
   },
   'md-sonic-2': {
@@ -47,8 +47,8 @@ const GAME_CATALOG = {
     system: 'MEGADRIVE',
     sizeMb: 1.0,
     ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGADRIVE/Sonic%20The%20Hedgehog%202%20(W)%20(REV01)%20%5B!%5D.md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGADRIVE/sonic-2.jpg`,
+    romUrl: `${CLOUDFLARE_R2_BASE}/MEGADRIVE/Sonic The Hedgehog 2 (W) (REV01) [!].md`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/super-mario-world.jpg`,
     isHeavy: false,
   }
 };
@@ -81,7 +81,14 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
 
   let parsedUrl;
   try {
-    parsedUrl = new URL(targetUrl);
+    // Limpa codificação dupla de caracteres (%2520 -> %20)
+    let cleanUrl = targetUrl;
+    try {
+      cleanUrl = decodeURIComponent(targetUrl);
+    } catch (e) {
+      cleanUrl = targetUrl;
+    }
+    parsedUrl = new URL(cleanUrl);
   } catch (e) {
     console.error(`[PROXY ERROR] URL inválida: ${targetUrl}`);
     return res.status(400).json({ error: 'URL da ROM inválida.' });
@@ -113,7 +120,7 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
     }
 
     if (remoteRes.statusCode < 200 || remoteRes.statusCode >= 400) {
-      console.error(`[PROXY ERROR] HTTP ${remoteRes.statusCode} no R2: ${targetUrl}`);
+      console.error(`[PROXY ERROR] HTTP ${remoteRes.statusCode} no R2 ao buscar: ${parsedUrl.href}`);
       return res.status(remoteRes.statusCode).json({ error: `Cloudflare R2 retornou HTTP ${remoteRes.statusCode}` });
     }
 
@@ -151,35 +158,6 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
 
   remoteReq.end();
 }
-
-app.get('/api/proxy-image', (req, res) => {
-  const imageUrl = req.query.url;
-  if (!imageUrl) {
-    return res.status(400).json({ error: 'URL da imagem não informada.' });
-  }
-
-  try {
-    const parsedUrl = new URL(imageUrl);
-    const client = parsedUrl.protocol === 'https:' ? https : http;
-
-    client.get(imageUrl, (remoteRes) => {
-      if (remoteRes.statusCode !== 200) {
-        return res.status(remoteRes.statusCode).end();
-      }
-
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Cache-Control', 'public, max-age=604800'); // Cache for 7 days
-      if (remoteRes.headers['content-type']) {
-        res.setHeader('Content-Type', remoteRes.headers['content-type']);
-      }
-      remoteRes.pipe(res);
-    }).on('error', () => {
-      return res.status(500).end();
-    });
-  } catch (e) {
-    return res.status(400).json({ error: 'URL inválida.' });
-  }
-});
 
 app.all('/api/proxy-rom', (req, res) => {
   if (req.method === 'OPTIONS') {
