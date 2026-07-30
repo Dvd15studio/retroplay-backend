@@ -1,7 +1,7 @@
 /**
  * =============================================================================
  * RETROPLAY BACKEND API SERVER (Node.js + Express)
- * Servidor de Teste Único com Proxy para Archive.org
+ * Configurado com Cloudflare R2 Próprio (ROM .smc + Capa JPG)
  * =============================================================================
  */
 
@@ -24,10 +24,12 @@ app.use(express.json());
 
 // Rota de Healthcheck / Status do Servidor
 app.get('/', (req, res) => {
-  return res.send('🚀 RETROPLAY BACKEND ONLINE!');
+  return res.send('🚀 RETROPLAY BACKEND ONLINE - CLOUDFLARE R2 PRÓPRIO CONECTADO!');
 });
 
-// CATÁLOGO DE TESTE: APENAS 1 JOGO (Archive.org)
+/**
+ * CATÁLOGOS COM SEUS LINKS DIRETO DO CLOUDFLARE R2
+ */
 const GAME_CATALOG = {
   'snes-mario-world': {
     id: 'snes-mario-world',
@@ -35,17 +37,40 @@ const GAME_CATALOG = {
     system: 'SNES',
     sizeMb: 0.5,
     ejsCore: 'snes',
-    romUrl: 'https://archive.org/download/snes-romset-ultrasteve/Super%20Mario%20World%20%28USA%20%28En%29%29.sfc',
-    coverUrl: 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1x7d.jpg',
+    romUrl: 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev/Super%20Mario%20World%20(U)%20%5B!%5D.smc',
+    coverUrl: 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev/super-mario-world.jpg',
     isHeavy: false,
   }
 };
 
-// Proxy para repassar o arquivo da ROM do Archive.org ao navegador
+// Mock de Sessão do Usuário
+const USERS_DB = {
+  'user_free_123': {
+    id: 'user_free_123',
+    name: 'Gamer Gratuito',
+    isVip: false,
+    secondsRemainingToday: 7200,
+    adBoostsUsedToday: 0,
+    lastResetDate: new Date().toISOString().split('T')[0],
+  },
+};
+
+function checkDailyReset(user) {
+  const today = new Date().toISOString().split('T')[0];
+  if (user.lastResetDate !== today) {
+    user.lastResetDate = today;
+    user.secondsRemainingToday = user.isVip ? 999999 : 7200;
+    user.adBoostsUsedToday = 0;
+  }
+}
+
+/**
+ * PROXY STREAMING PARA O CLOUDFLARE R2 (Aceita HEAD, GET e Range)
+ */
 function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
   if (maxRedirects === 0) {
     console.error('[PROXY ERROR] Excedido limite de redirecionamentos');
-    return res.status(500).json({ error: 'Muitos redirecionamentos.' });
+    return res.status(500).json({ error: 'Muitos redirecionamentos no servidor R2.' });
   }
 
   let parsedUrl;
@@ -53,7 +78,7 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
     parsedUrl = new URL(targetUrl);
   } catch (e) {
     console.error(`[PROXY ERROR] URL inválida: ${targetUrl}`);
-    return res.status(400).json({ error: 'URL inválida.' });
+    return res.status(400).json({ error: 'URL da ROM inválida.' });
   }
 
   const client = parsedUrl.protocol === 'https:' ? https : http;
@@ -76,16 +101,14 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
   };
 
   const remoteReq = client.request(requestOptions, (remoteRes) => {
-    // Trata redirecionamentos comuns do Archive.org (301, 302, 303, 307, 308)
     if ([301, 302, 303, 307, 308].includes(remoteRes.statusCode) && remoteRes.headers.location) {
       const redirectUrl = new URL(remoteRes.headers.location, targetUrl).href;
-      console.log(`[PROXY REDIRECT ${remoteRes.statusCode}] -> ${redirectUrl}`);
       return proxyRomStream(redirectUrl, req, res, maxRedirects - 1);
     }
 
     if (remoteRes.statusCode < 200 || remoteRes.statusCode >= 400) {
-      console.error(`[PROXY ERROR] HTTP ${remoteRes.statusCode} para ${targetUrl}`);
-      return res.status(remoteRes.statusCode).json({ error: `Servidor retornou HTTP ${remoteRes.statusCode}` });
+      console.error(`[PROXY ERROR] HTTP ${remoteRes.statusCode} no R2: ${targetUrl}`);
+      return res.status(remoteRes.statusCode).json({ error: `Cloudflare R2 retornou HTTP ${remoteRes.statusCode}` });
     }
 
     res.status(remoteRes.statusCode);
@@ -97,6 +120,7 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
     if (remoteRes.headers['content-length']) res.setHeader('Content-Length', remoteRes.headers['content-length']);
     if (remoteRes.headers['content-range']) res.setHeader('Content-Range', remoteRes.headers['content-range']);
     if (remoteRes.headers['accept-ranges']) res.setHeader('Accept-Ranges', remoteRes.headers['accept-ranges']);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
 
     if (req.method === 'HEAD') {
       return res.end();
@@ -105,10 +129,17 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
     remoteRes.pipe(res);
   });
 
+  remoteReq.setTimeout(30000, () => {
+    remoteReq.destroy();
+    if (!res.headersSent) {
+      res.status(504).json({ error: 'Timeout ao conectar com o Cloudflare R2.' });
+    }
+  });
+
   remoteReq.on('error', (err) => {
     console.error('[PROXY EXCEPTION]:', err);
     if (!res.headersSent) {
-      res.status(500).json({ error: err.message || 'Erro no proxy.' });
+      res.status(500).json({ error: err.message || 'Erro no proxy do R2.' });
     }
   });
 
@@ -134,13 +165,16 @@ app.all('/api/proxy-rom', (req, res) => {
 });
 
 app.get('/api/user/session-check', (req, res) => {
+  const userId = req.headers['x-user-id'] || 'user_free_123';
+  const user = USERS_DB[userId] || USERS_DB['user_free_123'];
+  checkDailyReset(user);
   return res.json({
-    userId: 'user_free_123',
-    isVip: false,
-    secondsRemainingToday: 7200,
-    adBoostsUsedToday: 0,
+    userId: user.id,
+    isVip: user.isVip,
+    secondsRemainingToday: user.secondsRemainingToday,
+    adBoostsUsedToday: user.adBoostsUsedToday,
     maxAdBoostsAllowed: 3,
-    canWatchAdForMoreTime: true,
+    canWatchAdForMoreTime: !user.isVip && user.adBoostsUsedToday < 3,
   });
 });
 
@@ -160,5 +194,8 @@ app.get('/api/games', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
+  console.log(`===================================================`);
   console.log(`🚀 RETROPLAY BACKEND ONLINE NA PORTA: ${PORT}`);
+  console.log(`☁️ SERVIDOR CONECTADO AO CLOUDFLARE R2 PRÓPRIO!`);
+  console.log(`===================================================`);
 });
