@@ -6,7 +6,7 @@ const { URL } = require('url');
 
 const app = express();
 
-// Habilita CORS completo para requisições do Flutter Web e Vercel
+// Habilita CORS completo para requisições do Flutter Web, Vercel e chamadas de mídia
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
@@ -16,12 +16,13 @@ app.use(cors({
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  return res.send('🚀 RETROPLAY BACKEND ONLINE - PROXY DE ROMS E CAPAS CONECTADO!');
+  return res.send('🚀 RETROPLAY BACKEND ONLINE - PROXY DE ROMS E CAPAS DO CLOUDFLARE R2 PRONTO!');
 });
 
 // URL Base pública do seu Cloudflare R2
 const CLOUDFLARE_R2_BASE = 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev';
 
+// Catálogo configurado exatamente com os nomes de arquivos extraídos do seu R2
 const GAME_CATALOG = {
   'nes-mario-25th': {
     id: 'nes-mario-25th',
@@ -33,24 +34,34 @@ const GAME_CATALOG = {
     coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).png`,
     isHeavy: false,
   },
-  'snes-mario-world': {
-    id: 'snes-mario-world',
-    title: 'Super Mario World',
-    system: 'SNES',
-    sizeMb: 0.5,
-    ejsCore: 'snes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/Super%20Mario%20World%20(U)%20%5B!%5D.smc`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/super-mario-world.jpg`,
+  'nes-mario-3': {
+    id: 'nes-mario-3',
+    title: 'Super Mario Bros. 3',
+    system: 'NES',
+    sizeMb: 0.38,
+    ejsCore: 'nes',
+    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Super%20Mario%20Bros.%203%20(USA)%20(Rev%20A).nes`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Super%20Mario%20Bros.%20(World).png`,
     isHeavy: false,
   },
-  'snes-aladdin': {
-    id: 'snes-aladdin',
-    title: 'Disney\'s Aladdin (SNES)',
-    system: 'SNES',
-    sizeMb: 1.0,
-    ejsCore: 'snes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Aladdin%20(USA).sfc`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Aladdin%20(USA).png`,
+  'nes-aladdin': {
+    id: 'nes-aladdin',
+    title: 'Disney\'s Aladdin (NES)',
+    system: 'NES',
+    sizeMb: 0.25,
+    ejsCore: 'nes',
+    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Aladdin%20(Europe).nes`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Aladdin%20(Europe).png`,
+    isHeavy: false,
+  },
+  'nes-zelda': {
+    id: 'nes-zelda',
+    title: 'The Legend of Zelda',
+    system: 'NES',
+    sizeMb: 0.13,
+    ejsCore: 'nes',
+    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Legend%20of%20Zelda%2C%20The%20(USA)%20(Rev%201).nes`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Legend%20of%20Zelda%2C%20The%20(USA)%20(Rev%201).png`,
     isHeavy: false,
   },
   'md-aladdin': {
@@ -59,8 +70,38 @@ const GAME_CATALOG = {
     system: 'MEGADRIVE',
     sizeMb: 2.0,
     ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGADRIVE/ROMS/Aladdin%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGADRIVE/CAPAS/Aladdin%20(USA).png`,
+    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Aladdin%20(USA).md`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Aladdin.png`,
+    isHeavy: false,
+  },
+  'md-sonic-2': {
+    id: 'md-sonic-2',
+    title: 'Sonic the Hedgehog 2',
+    system: 'MEGADRIVE',
+    sizeMb: 1.0,
+    ejsCore: 'segaMD',
+    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Sonic%20The%20Hedgehog%202%20(World)%20(Rev%20B).md`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Sonic%20The%20Hedgehog%20II.png`,
+    isHeavy: false,
+  },
+  'md-streets-rage-2': {
+    id: 'md-streets-rage-2',
+    title: 'Streets of Rage 2',
+    system: 'MEGADRIVE',
+    sizeMb: 2.0,
+    ejsCore: 'segaMD',
+    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Streets%20of%20Rage%202%20(USA).md`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Streets%20Of%20Rage%20II.png`,
+    isHeavy: false,
+  },
+  'md-mortal-kombat-3': {
+    id: 'md-mortal-kombat-3',
+    title: 'Mortal Kombat 3',
+    system: 'MEGADRIVE',
+    sizeMb: 4.0,
+    ejsCore: 'segaMD',
+    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Mortal%20Kombat%203%20(USA).md`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Mortal%20Kombat%20III.png`,
     isHeavy: false,
   }
 };
@@ -72,7 +113,7 @@ function sanitizeR2Url(rawUrl) {
   if (!rawUrl) return '';
   try {
     let decoded = rawUrl;
-    // Decodifica repetidamente %2520, %2C, etc.
+    // Decodifica %2520 e codificações duplas do navegador
     while (decoded.includes('%')) {
       const prev = decoded;
       try {
@@ -82,7 +123,7 @@ function sanitizeR2Url(rawUrl) {
       }
       if (decoded === prev) break;
     }
-    // Aplica encodeURI na string limpa
+    // Aplica encodeURI na string limpa para codificar apenas espaços e caracteres de controle
     return encodeURI(decoded);
   } catch (err) {
     return rawUrl;
