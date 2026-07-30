@@ -6,7 +6,6 @@ const { URL } = require('url');
 
 const app = express();
 
-// Habilita CORS completo para requisições do Flutter Web, Vercel e chamadas de mídia
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
@@ -19,10 +18,8 @@ app.get('/', (req, res) => {
   return res.send('🚀 RETROPLAY BACKEND ONLINE - PROXY DE ROMS E CAPAS DO CLOUDFLARE R2 PRONTO!');
 });
 
-// URL Base pública do seu Cloudflare R2
 const CLOUDFLARE_R2_BASE = 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev';
 
-// Catálogo configurado exatamente com os nomes de arquivos extraídos do seu R2
 const GAME_CATALOG = {
   'nes-mario-25th': {
     id: 'nes-mario-25th',
@@ -106,14 +103,10 @@ const GAME_CATALOG = {
   }
 };
 
-/**
- * Sanitiza e limpa a URL garantindo compatibilidade com o Cloudflare R2
- */
 function sanitizeR2Url(rawUrl) {
   if (!rawUrl) return '';
   try {
     let decoded = rawUrl;
-    // Decodifica %2520 e codificações duplas do navegador
     while (decoded.includes('%')) {
       const prev = decoded;
       try {
@@ -123,16 +116,12 @@ function sanitizeR2Url(rawUrl) {
       }
       if (decoded === prev) break;
     }
-    // Aplica encodeURI na string limpa para codificar apenas espaços e caracteres de controle
     return encodeURI(decoded);
   } catch (err) {
     return rawUrl;
   }
 }
 
-/**
- * Realiza o streaming da ROM ou Capa direto do Cloudflare R2 com bypass de CORS
- */
 function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
   if (maxRedirects === 0) {
     console.error('[PROXY ERROR] Excedido limite de redirecionamentos');
@@ -215,7 +204,7 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
   remoteReq.end();
 }
 
-app.all('/api/proxy-rom', (req, res) => {
+app.all(['/api/proxy-rom', '/api/proxy-rom/:filename'], (req, res) => {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
