@@ -2,10 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const https = require('https');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { URL } = require('url');
 
 const app = express();
 
+// Enable CORS for all cross-origin requests
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
@@ -14,16 +17,11 @@ app.use(cors({
 
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  return res.send('🚀 RETROPLAY BACKEND ONLINE - CATÁLOGO COMPLETO DO CLOUDFLARE R2 PRONTO!');
-});
-
 const CLOUDFLARE_R2_BASE = 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev';
 
-const GAME_CATALOG = {
-  // ==========================================
-  // NINTENDO (NES)
-  // ==========================================
+// Default fallback catalog if no txt file is loaded dynamically
+let GAME_CATALOG = {
+  // NES
   'nes-mario-25th': {
     id: 'nes-mario-25th',
     title: '25th Anniversary Super Mario Bros.',
@@ -72,14 +70,6 @@ const GAME_CATALOG = {
     romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Legend%20of%20Zelda%2C%20The%20(USA)%20(Rev%201).nes`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Legend%20of%20Zelda%2C%20The%20(USA)%20(Rev%201).png`,
   },
-  'nes-zelda-2': {
-    id: 'nes-zelda-2',
-    title: 'Zelda II - The Adventure of Link',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Zelda%20II%20-%20The%20Adventure%20of%20Link%20(USA).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Legend%20of%20Zelda%2C%20The%20(USA)%20(Rev%201).png`,
-  },
   'nes-castlevania-1': {
     id: 'nes-castlevania-1',
     title: 'Castlevania',
@@ -87,46 +77,6 @@ const GAME_CATALOG = {
     ejsCore: 'nes',
     romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Castlevania%20(USA)%20(Rev%201).nes`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Castlevania%20(USA)%20(Rev%201).png`,
-  },
-  'nes-castlevania-2': {
-    id: 'nes-castlevania-2',
-    title: 'Castlevania II - Simon\'s Quest',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Castlevania%20II%20-%20Simon's%20Quest%20(USA).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Castlevania%20II%20-%20Simon's%20Quest%20(USA).png`,
-  },
-  'nes-contra': {
-    id: 'nes-contra',
-    title: 'Super C (Contra II)',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Super%20C%20(USA).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Super%20C%20(USA).png`,
-  },
-  'nes-contra-force': {
-    id: 'nes-contra-force',
-    title: 'Contra Force',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Contra%20Force%20(USA).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Contra%20Force%20(USA).png`,
-  },
-  'nes-donkey-kong': {
-    id: 'nes-donkey-kong',
-    title: 'Donkey Kong',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Donkey%20Kong%20(World)%20(Rev%20A).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Donkey%20Kong%20(World)%20(Rev%20A).png`,
-  },
-  'nes-double-dragon-1': {
-    id: 'nes-double-dragon-1',
-    title: 'Double Dragon',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Double%20Dragon%20(USA).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Double%20Dragon%20III%20-%20The%20Sacred%20Stones%20(USA).png`,
   },
   'nes-mega-man-2': {
     id: 'nes-mega-man-2',
@@ -136,34 +86,8 @@ const GAME_CATALOG = {
     romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Mega%20Man%202%20(USA).nes`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Mega%20Man%202%20(USA).png`,
   },
-  'nes-mega-man-6': {
-    id: 'nes-mega-man-6',
-    title: 'Mega Man 6',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Mega%20Man%206%20(USA).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Mega%20Man%206%20(USA).png`,
-  },
-  'nes-ninja-gaiden': {
-    id: 'nes-ninja-gaiden',
-    title: 'Ninja Gaiden',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Ninja%20Gaiden%20(USA).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Ninja%20Gaiden%20(USA).png`,
-  },
-  'nes-tmnt': {
-    id: 'nes-tmnt',
-    title: 'Teenage Mutant Ninja Turtles',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Teenage%20Mutant%20Ninja%20Turtles%20(USA).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Teenage%20Mutant%20Ninja%20Turtles%20-%20Tournament%20Fighters%20(USA).png`,
-  },
 
-  // ==========================================
-  // MEGA DRIVE (SEGA)
-  // ==========================================
+  // MEGA DRIVE
   'md-aladdin': {
     id: 'md-aladdin',
     title: 'Disney\'s Aladdin (Mega Drive)',
@@ -179,14 +103,6 @@ const GAME_CATALOG = {
     ejsCore: 'segaMD',
     romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Disney's%20The%20Lion%20King.smd`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Disney's%20The%20Lion%20King.png`,
-  },
-  'md-jungle-book': {
-    id: 'md-jungle-book',
-    title: 'Disney\'s The Jungle Book',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Disney's%20The%20Jungle%20Book.smd`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Disney's%20The%20Jungle%20Book.png`,
   },
   'md-sonic-1': {
     id: 'md-sonic-1',
@@ -204,22 +120,6 @@ const GAME_CATALOG = {
     romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Sonic%20The%20Hedgehog%202%20(World)%20(Rev%20B).md`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Sonic%20The%20Hedgehog%202%20(World)%20(Rev%20B).png`,
   },
-  'md-sonic-3': {
-    id: 'md-sonic-3',
-    title: 'Sonic & Knuckles + Sonic 3',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Sonic%20%26%20Knuckles%20%2B%20Sonic%20The%20Hedgehog%203%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Sonic%20%26%20Knuckles%20%2B%20Sonic%20The%20Hedgehog%203%20(USA).png`,
-  },
-  'md-streets-rage-1': {
-    id: 'md-streets-rage-1',
-    title: 'Streets of Rage',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Bare%20Knuckle%20-%20Ikari%20no%20Tekken%20~%20Streets%20of%20Rage%20(World)%20(Rev%20A).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Streets%20Of%20Rage%20I.png`,
-  },
   'md-streets-rage-2': {
     id: 'md-streets-rage-2',
     title: 'Streets of Rage 2',
@@ -227,30 +127,6 @@ const GAME_CATALOG = {
     ejsCore: 'segaMD',
     romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Streets%20of%20Rage%202%20(USA).md`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Streets%20Of%20Rage%20II.png`,
-  },
-  'md-streets-rage-3': {
-    id: 'md-streets-rage-3',
-    title: 'Streets of Rage 3',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Streets%20of%20Rage%203%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Streets%20Of%20Rage%20III.png`,
-  },
-  'md-mortal-kombat-1': {
-    id: 'md-mortal-kombat-1',
-    title: 'Mortal Kombat',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Mortal%20Kombat%20(World).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Mortal%20Kombat%20I.png`,
-  },
-  'md-mortal-kombat-2': {
-    id: 'md-mortal-kombat-2',
-    title: 'Mortal Kombat II',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Mortal%20Kombat%20II%20(World).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Mortal%20Kombat%20II.png`,
   },
   'md-mortal-kombat-3': {
     id: 'md-mortal-kombat-3',
@@ -260,111 +136,99 @@ const GAME_CATALOG = {
     romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Mortal%20Kombat%203%20(USA).md`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Mortal%20Kombat%203%20(USA).png`,
   },
-  'md-umk-3': {
-    id: 'md-umk-3',
-    title: 'Ultimate Mortal Kombat 3',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Ultimate%20Mortal%20Kombat%203%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Ultimate%20Mortal%20Kombat%203%20(USA).png`,
-  },
-  'md-earthworm-jim-1': {
-    id: 'md-earthworm-jim-1',
+  'md-earthworm-jim': {
+    id: 'md-earthworm-jim',
     title: 'Earthworm Jim',
     system: 'MEGADRIVE',
     ejsCore: 'segaMD',
     romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Earthworm%20Jim%20(USA).md`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Earthworm%20Jim%20I.png`,
-  },
-  'md-earthworm-jim-2': {
-    id: 'md-earthworm-jim-2',
-    title: 'Earthworm Jim 2',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Earthworm%20Jim%202%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Earthworm%20Jim%20II.png`,
-  },
-  'md-golden-axe-1': {
-    id: 'md-golden-axe-1',
-    title: 'Golden Axe',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Golden%20Axe%20(World)%20(Rev%20A).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Golden%20Axe%20I.png`,
-  },
-  'md-golden-axe-2': {
-    id: 'md-golden-axe-2',
-    title: 'Golden Axe II',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Golden%20Axe%20II%20(World).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Golden%20Axe%20II%20(World).png`,
-  },
-  'md-golden-axe-3': {
-    id: 'md-golden-axe-3',
-    title: 'Golden Axe III',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Golden%20Axe%20III%20(Japan)%20(En).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Golden%20Axe%20III.png`,
-  },
-  'md-shinobi-3': {
-    id: 'md-shinobi-3',
-    title: 'Shinobi III - Return of the Ninja Master',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Shinobi%20III%20-%20Return%20of%20the%20Ninja%20Master%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Shinobi%20III%20-%20Return%20of%20the%20Ninja%20Master%20(USA).png`,
-  },
-  'md-tmnt-hyperstone': {
-    id: 'md-tmnt-hyperstone',
-    title: 'TMNT - The Hyperstone Heist',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Teenage%20Mutant%20Ninja%20Turtles%20-%20The%20Hyperstone%20Heist%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Teenage%20Mutant%20Ninja%20Turtles%20-%20The%20Hyperstone%20Heist%20(USA).png`,
-  },
-  'md-gunstar-heroes': {
-    id: 'md-gunstar-heroes',
-    title: 'Gunstar Heroes',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Gunstar%20Heroes%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Gunstar%20Heroes%20(USA).png`,
-  },
-  'md-vectorman-1': {
-    id: 'md-vectorman-1',
-    title: 'Vectorman',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Vectorman%20(USA%2C%20Europe).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Vectorman%20I.png`,
-  },
-  'md-vectorman-2': {
-    id: 'md-vectorman-2',
-    title: 'Vectorman 2',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Vectorman%202%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Vectorman%202%20(USA).png`,
-  },
-  'md-road-rash-3': {
-    id: 'md-road-rash-3',
-    title: 'Road Rash 3',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Road%20Rash%203%20(USA%2C%20Europe).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Road%20Rash%203%20(USA%2C%20Europe).png`,
-  },
-  'md-xmen-2': {
-    id: 'md-xmen-2',
-    title: 'X-Men 2 - Clone Wars',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/X-Men%202%20-%20Clone%20Wars%20(USA%2C%20Europe).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/X-Men%202%20-%20Clone%20Wars%20(USA%2C%20Europe).png`,
   }
 };
+
+function tryLoadFromLocalTxt() {
+  const possiblePaths = [
+    path.join(__dirname, 'meus_links_r2.txt'),
+    path.join(__dirname, 'Links Rr2.txt'),
+    path.join(__dirname, 'links_r2.txt')
+  ];
+
+  let filePath = null;
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      filePath = p;
+      break;
+    }
+  }
+
+  if (!filePath) {
+    console.log('ℹ️ Nenhum arquivo TXT de manifesto encontrado no diretório. Usando catálogo padrão.');
+    return;
+  }
+
+  try {
+    console.log(`📄 Carregando acervo a partir do arquivo: ${filePath}`);
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n');
+
+    let parsedCatalog = {};
+    let currentKey = null;
+    let currentLink = null;
+
+    for (let line of lines) {
+      line = line.trim();
+      if (line.match(/^\d+\.\s+/)) {
+        currentKey = line.replace(/^\d+\.\s+/, '').split(' (')[0].trim();
+      } else if (line.startsWith('Link:')) {
+        currentLink = line.replace('Link:', '').trim();
+
+        if (currentKey && currentLink && currentKey.includes('/ROMS/')) {
+          const parts = currentKey.split('/');
+          const consoleFolder = parts[0]; // e.g. MEGA or SNES
+          const filenameWithExt = parts[parts.length - 1]; // e.g. Aladdin (USA).md
+          const extension = filenameWithExt.split('.').pop().toLowerCase();
+          const baseName = filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.'));
+
+          let system = 'NES';
+          let ejsCore = 'nes';
+
+          if (consoleFolder === 'MEGA' || extension === 'md' || extension === 'smd') {
+            system = 'MEGADRIVE';
+            ejsCore = 'segaMD';
+          }
+
+          const id = `${system.toLowerCase()}-${baseName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+          // Construct cover URL by convention if available
+          let coverFolder = consoleFolder === 'MEGA' ? 'MEGA/CAPA' : 'SNES/CAPAS';
+          let coverExt = 'png';
+          let coverUrl = `${CLOUDFLARE_R2_BASE}/${coverFolder}/${encodeURIComponent(baseName)}.${coverExt}`;
+
+          parsedCatalog[id] = {
+            id,
+            title: baseName,
+            system,
+            ejsCore,
+            romUrl: currentLink,
+            coverUrl,
+          };
+        }
+
+        currentKey = null;
+        currentLink = null;
+      }
+    }
+
+    if (Object.keys(parsedCatalog).length > 0) {
+      GAME_CATALOG = parsedCatalog;
+      console.log(`✅ Sucesso! Catálogo carregado dinamicamente com ${Object.keys(GAME_CATALOG).length} jogos.`);
+    }
+  } catch (err) {
+    console.error('❌ Erro ao ler arquivo TXT:', err.message);
+  }
+}
+
+tryLoadFromLocalTxt();
 
 function sanitizeR2Url(rawUrl) {
   if (!rawUrl) return '';
@@ -462,6 +326,10 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
   remoteReq.end();
 }
 
+app.get('/', (req, res) => {
+  return res.send(`🚀 RETROPLAY BACKEND ONLINE - CATÁLOGO COM ${Object.keys(GAME_CATALOG).length} JOGOS CARREGADOS!`);
+});
+
 app.all(['/api/proxy-rom', '/api/proxy-rom/:filename'], (req, res) => {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -493,7 +361,7 @@ app.get('/api/games', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`===================================================`);
-  console.log(`🚀 RETROPLAY BACKEND ONLINE NA PORTA: ${PORT}`);
-  console.log(`☁️ SERVIDOR CONECTADO AO CLOUDFLARE R2 PRÓPRIO!`);
+  console.log(`🚀 RETROPLAY BACKEND RUNNING ON PORT: ${PORT}`);
+  console.log(`🎮 TOTAL DE JOGOS NO CATÁLOGO: ${Object.keys(GAME_CATALOG).length}`);
   console.log(`===================================================`);
 });
