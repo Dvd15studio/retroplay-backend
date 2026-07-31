@@ -8,7 +8,6 @@ const { URL } = require('url');
 
 const app = express();
 
-// Enable CORS for all cross-origin requests
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'HEAD', 'OPTIONS'],
@@ -19,138 +18,16 @@ app.use(express.json());
 
 const CLOUDFLARE_R2_BASE = 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev';
 
-// Default fallback catalog if no txt file is loaded dynamically
-let GAME_CATALOG = {
-  // NES
-  'nes-mario-25th': {
-    id: 'nes-mario-25th',
-    title: '25th Anniversary Super Mario Bros.',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).png`,
-  },
-  'nes-mario-1': {
-    id: 'nes-mario-1',
-    title: 'Super Mario Bros.',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Super%20Mario%20Bros.%20(World).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Super%20Mario%20Bros.%20(World).png`,
-  },
-  'nes-mario-2': {
-    id: 'nes-mario-2',
-    title: 'Super Mario Bros. 2',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Super%20Mario%20Bros.%202%20(USA)%20(Rev%201).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).png`,
-  },
-  'nes-mario-3': {
-    id: 'nes-mario-3',
-    title: 'Super Mario Bros. 3',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Super%20Mario%20Bros.%203%20(USA)%20(Rev%20A).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Super%20Mario%20Bros.%20(World).png`,
-  },
-  'nes-aladdin': {
-    id: 'nes-aladdin',
-    title: 'Disney\'s Aladdin (NES)',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Aladdin%20(Europe).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Aladdin%20(Europe).png`,
-  },
-  'nes-zelda-1': {
-    id: 'nes-zelda-1',
-    title: 'The Legend of Zelda',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Legend%20of%20Zelda%2C%20The%20(USA)%20(Rev%201).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Legend%20of%20Zelda%2C%20The%20(USA)%20(Rev%201).png`,
-  },
-  'nes-castlevania-1': {
-    id: 'nes-castlevania-1',
-    title: 'Castlevania',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Castlevania%20(USA)%20(Rev%201).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Castlevania%20(USA)%20(Rev%201).png`,
-  },
-  'nes-mega-man-2': {
-    id: 'nes-mega-man-2',
-    title: 'Mega Man 2',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Mega%20Man%202%20(USA).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Mega%20Man%202%20(USA).png`,
-  },
-
-  // MEGA DRIVE
-  'md-aladdin': {
-    id: 'md-aladdin',
-    title: 'Disney\'s Aladdin (Mega Drive)',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Aladdin%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Aladdin.png`,
-  },
-  'md-lion-king': {
-    id: 'md-lion-king',
-    title: 'Disney\'s The Lion King',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Disney's%20The%20Lion%20King.smd`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Disney's%20The%20Lion%20King.png`,
-  },
-  'md-sonic-1': {
-    id: 'md-sonic-1',
-    title: 'Sonic The Hedgehog',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Sonic%20The%20Hedgehog%20(USA%2C%20Europe).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Sonic%20The%20Hedgehog%20(USA%2C%20Europe).png`,
-  },
-  'md-sonic-2': {
-    id: 'md-sonic-2',
-    title: 'Sonic The Hedgehog 2',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Sonic%20The%20Hedgehog%202%20(World)%20(Rev%20B).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Sonic%20The%20Hedgehog%202%20(World)%20(Rev%20B).png`,
-  },
-  'md-streets-rage-2': {
-    id: 'md-streets-rage-2',
-    title: 'Streets of Rage 2',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Streets%20of%20Rage%202%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Streets%20Of%20Rage%20II.png`,
-  },
-  'md-mortal-kombat-3': {
-    id: 'md-mortal-kombat-3',
-    title: 'Mortal Kombat 3',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Mortal%20Kombat%203%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Mortal%20Kombat%203%20(USA).png`,
-  },
-  'md-earthworm-jim': {
-    id: 'md-earthworm-jim',
-    title: 'Earthworm Jim',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Earthworm%20Jim%20(USA).md`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Earthworm%20Jim%20I.png`,
-  }
-};
+// Global Game Catalog
+let GAME_CATALOG = {};
 
 function tryLoadFromLocalTxt() {
   const possiblePaths = [
     path.join(__dirname, 'meus_links_r2.txt'),
     path.join(__dirname, 'Links Rr2.txt'),
-    path.join(__dirname, 'links_r2.txt')
+    path.join(__dirname, 'links_r2.txt'),
+    path.join(__dirname, 'Links_Rr2.txt'),
+    path.join(__dirname, 'Links Rr2.txt.txt')
   ];
 
   let filePath = null;
@@ -162,7 +39,8 @@ function tryLoadFromLocalTxt() {
   }
 
   if (!filePath) {
-    console.log('ℹ️ Nenhum arquivo TXT de manifesto encontrado no diretório. Usando catálogo padrão.');
+    console.log('ℹ️ Nenhum arquivo TXT de manifesto encontrado no diretório. Usando catálogo pré-indexado padrão.');
+    loadFallbackCatalog();
     return;
   }
 
@@ -171,9 +49,41 @@ function tryLoadFromLocalTxt() {
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split('\n');
 
-    let parsedCatalog = {};
+    const coversMapExact = new Map();
+    const coversMapClean = new Map();
+
     let currentKey = null;
     let currentLink = null;
+
+    // PASS 1: Index all exact Cover links from the file
+    for (let line of lines) {
+      line = line.trim();
+      if (line.match(/^\d+\.\s+/)) {
+        currentKey = line.replace(/^\d+\.\s+/, '').split(' (')[0].trim();
+      } else if (line.startsWith('Link:')) {
+        currentLink = line.replace('Link:', '').trim();
+
+        if (currentKey && currentLink && (currentKey.includes('/CAPA/') || currentKey.includes('/CAPAS/'))) {
+          const parts = currentKey.split('/');
+          const filenameWithExt = parts[parts.length - 1];
+          const baseName = filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.'));
+          
+          const exactKey = baseName.toLowerCase();
+          const cleanKey = baseName.replace(/\s*\([^)]*\)/g, '').replace(/\s*\[[^\]]*\]/g, '').trim().toLowerCase();
+
+          coversMapExact.set(exactKey, currentLink);
+          if (!coversMapClean.has(cleanKey)) {
+            coversMapClean.set(cleanKey, currentLink);
+          }
+        }
+        currentKey = null;
+        currentLink = null;
+      }
+    }
+
+    // PASS 2: Index all ROMs and map to their covers
+    let parsedCatalog = {};
+    let romIndex = 1;
 
     for (let line of lines) {
       line = line.trim();
@@ -185,9 +95,16 @@ function tryLoadFromLocalTxt() {
         if (currentKey && currentLink && currentKey.includes('/ROMS/')) {
           const parts = currentKey.split('/');
           const consoleFolder = parts[0]; // e.g. MEGA or SNES
-          const filenameWithExt = parts[parts.length - 1]; // e.g. Aladdin (USA).md
+          const filenameWithExt = parts[parts.length - 1];
           const extension = filenameWithExt.split('.').pop().toLowerCase();
           const baseName = filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.'));
+
+          // Ignore save files or image files accidentally placed in ROMs
+          if (extension === 'sav' || extension === 'png' || extension === 'jpg') {
+            currentKey = null;
+            currentLink = null;
+            continue;
+          }
 
           let system = 'NES';
           let ejsCore = 'nes';
@@ -197,21 +114,42 @@ function tryLoadFromLocalTxt() {
             ejsCore = 'segaMD';
           }
 
-          const id = `${system.toLowerCase()}-${baseName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+          // Clean display title for UI
+          let cleanTitle = baseName
+            .replace(/\s*\(USA[^)]*\)/gi, '')
+            .replace(/\s*\(Europe[^)]*\)/gi, '')
+            .replace(/\s*\(Japan[^)]*\)/gi, '')
+            .replace(/\s*\(World[^)]*\)/gi, '')
+            .replace(/\s*\[[^\]]*\]/gi, '')
+            .trim();
 
-          // Construct cover URL by convention if available
-          let coverFolder = consoleFolder === 'MEGA' ? 'MEGA/CAPA' : 'SNES/CAPAS';
-          let coverExt = 'png';
-          let coverUrl = `${CLOUDFLARE_R2_BASE}/${coverFolder}/${encodeURIComponent(baseName)}.${coverExt}`;
+          if (!cleanTitle) cleanTitle = baseName;
+
+          // Generate unique ID per ROM entry to prevent overwriting
+          const id = `game-${romIndex}-${system.toLowerCase()}-${baseName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+          // Match exact cover URL from Pass 1
+          const exactKey = baseName.toLowerCase();
+          const cleanKey = baseName.replace(/\s*\([^)]*\)/g, '').replace(/\s*\[[^\]]*\]/g, '').trim().toLowerCase();
+
+          let coverUrl = coversMapExact.get(exactKey) || coversMapClean.get(cleanKey) || coversMapClean.get(cleanTitle.toLowerCase());
+
+          if (!coverUrl) {
+            let coverFolder = consoleFolder === 'MEGA' ? 'MEGA/CAPA' : 'SNES/CAPAS';
+            coverUrl = `${CLOUDFLARE_R2_BASE}/${coverFolder}/${encodeURIComponent(baseName)}.png`;
+          }
 
           parsedCatalog[id] = {
             id,
-            title: baseName,
+            title: cleanTitle,
+            fullTitle: baseName,
             system,
             ejsCore,
             romUrl: currentLink,
             coverUrl,
           };
+
+          romIndex++;
         }
 
         currentKey = null;
@@ -221,11 +159,39 @@ function tryLoadFromLocalTxt() {
 
     if (Object.keys(parsedCatalog).length > 0) {
       GAME_CATALOG = parsedCatalog;
-      console.log(`✅ Sucesso! Catálogo carregado dinamicamente com ${Object.keys(GAME_CATALOG).length} jogos.`);
+      console.log(`===================================================`);
+      console.log(`✅ Sucesso! Catálogo dinâmico carregado com ${Object.keys(GAME_CATALOG).length} jogos!`);
+      console.log(`===================================================`);
+    } else {
+      loadFallbackCatalog();
     }
   } catch (err) {
     console.error('❌ Erro ao ler arquivo TXT:', err.message);
+    loadFallbackCatalog();
   }
+}
+
+function loadFallbackCatalog() {
+  GAME_CATALOG = {
+    'nes-mario-25th': {
+      id: 'nes-mario-25th',
+      title: '25th Anniversary Super Mario Bros.',
+      fullTitle: '25th Anniversary Super Mario Bros. (Europe) (Promo, Virtual Console)',
+      system: 'NES',
+      ejsCore: 'nes',
+      romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).nes`,
+      coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).png`,
+    },
+    'md-aladdin': {
+      id: 'md-aladdin',
+      title: 'Disney\'s Aladdin (Mega Drive)',
+      fullTitle: 'Aladdin (USA)',
+      system: 'MEGADRIVE',
+      ejsCore: 'segaMD',
+      romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Aladdin%20(USA).md`,
+      coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Aladdin.png`,
+    }
+  };
 }
 
 tryLoadFromLocalTxt();
@@ -233,17 +199,21 @@ tryLoadFromLocalTxt();
 function sanitizeR2Url(rawUrl) {
   if (!rawUrl) return '';
   try {
-    let decoded = rawUrl;
-    while (decoded.includes('%')) {
-      const prev = decoded;
-      try {
-        decoded = decodeURIComponent(decoded);
-      } catch (e) {
-        break;
-      }
-      if (decoded === prev) break;
-    }
-    return encodeURI(decoded);
+    const parsed = new URL(rawUrl);
+    const cleanPath = parsed.pathname
+      .split('/')
+      .map((segment) => {
+        if (!segment) return '';
+        try {
+          const decoded = decodeURIComponent(segment);
+          return encodeURIComponent(decoded);
+        } catch (e) {
+          return segment;
+        }
+      })
+      .join('/');
+
+    return `${parsed.protocol}//${parsed.host}${cleanPath}${parsed.search}`;
   } catch (err) {
     return rawUrl;
   }
@@ -350,6 +320,7 @@ app.get('/api/games', (req, res) => {
   const gamesList = Object.values(GAME_CATALOG).map((game) => ({
     id: game.id,
     title: game.title,
+    fullTitle: game.fullTitle,
     system: game.system,
     ejsCore: game.ejsCore,
     demoRomUrl: game.romUrl,
