@@ -22,7 +22,7 @@ const CLOUDFLARE_R2_BASE = 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev'
 
 const GAME_CATALOG = {
   // ==========================================
-  // NINTENDO (NES / SNES)
+  // NINTENDO (NES)
   // ==========================================
   'nes-mario-25th': {
     id: 'nes-mario-25th',
@@ -128,14 +128,6 @@ const GAME_CATALOG = {
     romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Double%20Dragon%20(USA).nes`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Double%20Dragon%20III%20-%20The%20Sacred%20Stones%20(USA).png`,
   },
-  'nes-double-dragon-2': {
-    id: 'nes-double-dragon-2',
-    title: 'Double Dragon II - The Revenge',
-    system: 'NES',
-    ejsCore: 'nes',
-    romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/Double%20Dragon%20II%20-%20The%20Revenge%20(USA)%20(Rev%201).nes`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/Double%20Dragon%20III%20-%20The%20Sacred%20Stones%20(USA).png`,
-  },
   'nes-mega-man-2': {
     id: 'nes-mega-man-2',
     title: 'Mega Man 2',
@@ -179,6 +171,22 @@ const GAME_CATALOG = {
     ejsCore: 'segaMD',
     romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Aladdin%20(USA).md`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Aladdin.png`,
+  },
+  'md-lion-king': {
+    id: 'md-lion-king',
+    title: 'Disney\'s The Lion King',
+    system: 'MEGADRIVE',
+    ejsCore: 'segaMD',
+    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Disney's%20The%20Lion%20King.smd`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Disney's%20The%20Lion%20King.png`,
+  },
+  'md-jungle-book': {
+    id: 'md-jungle-book',
+    title: 'Disney\'s The Jungle Book',
+    system: 'MEGADRIVE',
+    ejsCore: 'segaMD',
+    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Disney's%20The%20Jungle%20Book.smd`,
+    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Disney's%20The%20Jungle%20Book.png`,
   },
   'md-sonic-1': {
     id: 'md-sonic-1',
@@ -299,14 +307,6 @@ const GAME_CATALOG = {
     ejsCore: 'segaMD',
     romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Golden%20Axe%20III%20(Japan)%20(En).md`,
     coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Golden%20Axe%20III.png`,
-  },
-  'md-lion-king': {
-    id: 'md-lion-king',
-    title: 'Disney\'s The Lion King',
-    system: 'MEGADRIVE',
-    ejsCore: 'segaMD',
-    romUrl: `${CLOUDFLARE_R2_BASE}/MEGA/ROMS/Disney's%20The%20Lion%20King.smd`,
-    coverUrl: `${CLOUDFLARE_R2_BASE}/MEGA/CAPA/Disney's%20The%20Lion%20King.png`,
   },
   'md-shinobi-3': {
     id: 'md-shinobi-3',
