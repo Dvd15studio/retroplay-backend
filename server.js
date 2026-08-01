@@ -23,8 +23,8 @@ let GAME_CATALOG = {};
 
 function tryLoadFromLocalTxt() {
   const possiblePaths = [
-    path.join(__dirname, 'meus_links_r2.txt'),
     path.join(__dirname, 'Links Rr2.txt'),
+    path.join(__dirname, 'meus_links_r2.txt'),
     path.join(__dirname, 'links_r2.txt'),
     path.join(__dirname, 'Links_Rr2.txt'),
     path.join(__dirname, 'meus_links.txt')
@@ -49,9 +49,14 @@ function tryLoadFromLocalTxt() {
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split('\n');
 
-    const exactCoverMap = new Map();
-    const cleanCoverMap = new Map();
-    const normCoverMap = new Map();
+    // System-Isolated Cover Maps to prevent cross-platform cover pollution
+    const systemCoverMaps = {
+      NES: { exact: new Map(), clean: new Map(), norm: new Map() },
+      SNES: { exact: new Map(), clean: new Map(), norm: new Map() },
+      MEGADRIVE: { exact: new Map(), clean: new Map(), norm: new Map() },
+      PS1: { exact: new Map(), clean: new Map(), norm: new Map() },
+      PS2: { exact: new Map(), clean: new Map(), norm: new Map() }
+    };
 
     const rawEntries = [];
     let currentKey = null;
@@ -69,93 +74,104 @@ function tryLoadFromLocalTxt() {
       }
     }
 
-    // PASS 1: Index all covers with multi-level key matching across NES, SNES, MEGA, PS1, PS2
+    // Function to extract target system from R2 path key
+    function getSystemFromKey(keyUpper) {
+      if (keyUpper.startsWith('NES/') || keyUpper.includes('/NES/')) return 'NES';
+      if (keyUpper.startsWith('SNES/') || keyUpper.includes('/SNES/')) return 'SNES';
+      if (keyUpper.startsWith('MEGA/') || keyUpper.includes('/MEGA/')) return 'MEGADRIVE';
+      if (keyUpper.startsWith('PS1/') || keyUpper.includes('/PS1/')) return 'PS1';
+      if (keyUpper.startsWith('PS2/') || keyUpper.includes('/PS2/')) return 'PS2';
+      return 'NES';
+    }
+
+    // Function to clean title preserving numbers (2, 3, II, III)
+    function cleanGameTitle(rawTitle) {
+      return rawTitle
+        .replace(/\s*\((USA|Europe|Japan|World|En|Fr|De|Es|It|Pt|Sv|Nl|Rev\s*[\w\d]+|Unl|Proto|Promo|Virtual Console|Gluk Video|GameCube Edition|Pirate)[^)]*\)/gi, '')
+        .replace(/\s*\[[^\]]*\]/gi, '')
+        .replace(/\s*~\s*.*/gi, '')
+        .trim();
+    }
+
+    // PASS 1: Populate system-isolated cover maps
     for (const entry of rawEntries) {
       const lowerKey = entry.key.toLowerCase();
+      const upperKey = entry.key.toUpperCase();
       const isCover = lowerKey.includes('/capa') || lowerKey.includes('/capas') || lowerKey.includes('/cover') || lowerKey.includes('/covers');
 
       if (isCover) {
+        const sys = getSystemFromKey(upperKey);
         const parts = entry.key.split('/');
         const filenameWithExt = parts[parts.length - 1];
         const baseName = filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.')) || filenameWithExt;
 
         const exactKey = baseName.toLowerCase();
-        const cleanKey = baseName
-          .replace(/\s*\([^)]*\)/g, '')
-          .replace(/\s*\[[^\]]*\]/g, '')
-          .trim()
-          .toLowerCase();
+        const cleanKey = cleanGameTitle(baseName).toLowerCase();
         const normKey = baseName.replace(/[^a-z0-9]/g, '').toLowerCase();
 
-        exactCoverMap.set(exactKey, entry.link);
-        if (cleanKey && !cleanCoverMap.has(cleanKey)) {
-          cleanCoverMap.set(cleanKey, entry.link);
+        const maps = systemCoverMaps[sys];
+        maps.exact.set(exactKey, entry.link);
+        if (cleanKey && !maps.clean.has(cleanKey)) {
+          maps.clean.set(cleanKey, entry.link);
         }
-        if (normKey && !normCoverMap.has(normKey)) {
-          normCoverMap.set(normKey, entry.link);
+        if (normKey && !maps.norm.has(normKey)) {
+          maps.norm.set(normKey, entry.link);
         }
       }
     }
 
-    // PASS 2: Index all ROMs and pair with covers
+    // PASS 2: Populate ROMs and attach strictly matched cover
     let parsedCatalog = {};
     let romIndex = 1;
 
     for (const entry of rawEntries) {
       const lowerKey = entry.key.toLowerCase();
+      const upperKey = entry.key.toUpperCase();
       const isCover = lowerKey.includes('/capa') || lowerKey.includes('/capas') || lowerKey.includes('/cover') || lowerKey.includes('/covers');
 
       if (!isCover && (lowerKey.includes('/rom') || lowerKey.includes('/roms') || lowerKey.match(/\.(nes|sfc|smc|md|smd|gen|chd|cue|iso|fds)$/i))) {
         const parts = entry.key.split('/');
-        const topFolder = parts[0] ? parts[0].toUpperCase() : '';
         const filenameWithExt = parts[parts.length - 1];
         const extension = filenameWithExt.split('.').pop().toLowerCase();
         const baseName = filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.')) || filenameWithExt;
 
-        // Ignore metadata or save files
+        // Ignore save states, text or system files
         if (['sav', 'srm', 'txt', 'png', 'jpg', 'jpeg', 'webp', 'nfo', 'xml'].includes(extension)) {
           continue;
         }
 
-        let system = 'NES';
+        let system = getSystemFromKey(upperKey);
         let ejsCore = 'nes';
 
-        if (topFolder.includes('SNES') || extension === 'sfc' || extension === 'smc') {
+        if (system === 'SNES' || extension === 'sfc' || extension === 'smc') {
           system = 'SNES';
           ejsCore = 'snes';
-        } else if (topFolder.includes('MEGA') || topFolder.includes('SEGA') || extension === 'md' || extension === 'smd' || extension === 'gen') {
+        } else if (system === 'MEGADRIVE' || extension === 'md' || extension === 'smd' || extension === 'gen') {
           system = 'MEGADRIVE';
           ejsCore = 'segaMD';
-        } else if (topFolder.includes('PS1') || topFolder.includes('PSX') || (topFolder.includes('PS1') && (extension === 'chd' || extension === 'cue' || extension === 'pbp'))) {
-          system = 'PS1';
-          ejsCore = 'psx';
-        } else if (topFolder.includes('PS2') || (topFolder.includes('PS2') && (extension === 'chd' || extension === 'iso'))) {
+        } else if (system === 'PS1' || extension === 'chd' || extension === 'cue') {
+          if (upperKey.includes('/PS1/')) {
+            system = 'PS1';
+            ejsCore = 'psx';
+          }
+        } else if (system === 'PS2' || upperKey.includes('/PS2/')) {
           system = 'PS2';
           ejsCore = 'play';
-        } else if (topFolder.includes('NES') || extension === 'nes' || extension === 'fds') {
+        } else if (system === 'NES' || extension === 'nes' || extension === 'fds') {
           system = 'NES';
           ejsCore = 'nes';
         }
 
-        let cleanTitle = baseName
-          .replace(/\s*\(USA[^)]*\)/gi, '')
-          .replace(/\s*\(Europe[^)]*\)/gi, '')
-          .replace(/\s*\(Japan[^)]*\)/gi, '')
-          .replace(/\s*\(World[^)]*\)/gi, '')
-          .replace(/\s*\(Rev\s*\w+\)/gi, '')
-          .replace(/\s*\(Unl[^)]*\)/gi, '')
-          .replace(/\s*\(Proto[^)]*\)/gi, '')
-          .replace(/\s*\[[^\]]*\]/gi, '')
-          .replace(/\s*~\s*.*/gi, '')
-          .trim();
-
+        let cleanTitle = cleanGameTitle(baseName);
         if (!cleanTitle) cleanTitle = baseName;
 
         const exactKey = baseName.toLowerCase();
         const cleanKey = cleanTitle.toLowerCase();
         const normKey = baseName.replace(/[^a-z0-9]/g, '').toLowerCase();
 
-        let coverUrl = exactCoverMap.get(exactKey) || cleanCoverMap.get(cleanKey) || normCoverMap.get(normKey) || '';
+        // Strict lookup inside system-isolated cover map
+        const sysMaps = systemCoverMaps[system];
+        let coverUrl = sysMaps.exact.get(exactKey) || sysMaps.clean.get(cleanKey) || sysMaps.norm.get(normKey) || '';
 
         // Guaranteed unique ID per ROM entry
         const id = `game-${romIndex}-${system.toLowerCase()}-${baseName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
