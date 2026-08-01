@@ -18,7 +18,7 @@ app.use(express.json());
 
 const CLOUDFLARE_R2_BASE = 'https://pub-9cc5ba1ca4464cfea78f3f53ccebd465.r2.dev';
 
-// Global Game Catalog
+// Global Game Catalog Map
 let GAME_CATALOG = {};
 
 function tryLoadFromLocalTxt() {
@@ -27,7 +27,7 @@ function tryLoadFromLocalTxt() {
     path.join(__dirname, 'Links Rr2.txt'),
     path.join(__dirname, 'links_r2.txt'),
     path.join(__dirname, 'Links_Rr2.txt'),
-    path.join(__dirname, 'Links Rr2.txt.txt')
+    path.join(__dirname, 'meus_links.txt')
   ];
 
   let filePath = null;
@@ -39,134 +39,151 @@ function tryLoadFromLocalTxt() {
   }
 
   if (!filePath) {
-    console.log('ℹ️ Nenhum arquivo TXT de manifesto encontrado no diretório. Usando catálogo pré-indexado padrão.');
+    console.log('ℹ️ Nenhum arquivo TXT de manifesto encontrado. Carregando catálogo padrão de emergência.');
     loadFallbackCatalog();
     return;
   }
 
   try {
-    console.log(`📄 Carregando acervo a partir do arquivo: ${filePath}`);
+    console.log(`📄 Lendo e indexando acervo do Cloudflare R2 a partir de: ${filePath}`);
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split('\n');
 
-    const coversMapExact = new Map();
-    const coversMapClean = new Map();
+    const exactCoverMap = new Map();
+    const cleanCoverMap = new Map();
+    const normCoverMap = new Map();
 
+    const rawEntries = [];
     let currentKey = null;
-    let currentLink = null;
 
-    // PASS 1: Index all exact Cover links from the file
     for (let line of lines) {
       line = line.trim();
       if (line.match(/^\d+\.\s+/)) {
         currentKey = line.replace(/^\d+\.\s+/, '').split(' (')[0].trim();
       } else if (line.startsWith('Link:')) {
-        currentLink = line.replace('Link:', '').trim();
-
-        if (currentKey && currentLink && (currentKey.includes('/CAPA/') || currentKey.includes('/CAPAS/'))) {
-          const parts = currentKey.split('/');
-          const filenameWithExt = parts[parts.length - 1];
-          const baseName = filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.'));
-          
-          const exactKey = baseName.toLowerCase();
-          const cleanKey = baseName.replace(/\s*\([^)]*\)/g, '').replace(/\s*\[[^\]]*\]/g, '').trim().toLowerCase();
-
-          coversMapExact.set(exactKey, currentLink);
-          if (!coversMapClean.has(cleanKey)) {
-            coversMapClean.set(cleanKey, currentLink);
-          }
+        const link = line.replace('Link:', '').trim();
+        if (currentKey && link) {
+          rawEntries.push({ key: currentKey, link: link });
         }
         currentKey = null;
-        currentLink = null;
       }
     }
 
-    // PASS 2: Index all ROMs and map to their covers
+    // PASS 1: Index all covers with multi-level key matching across NES, SNES, MEGA, PS1, PS2
+    for (const entry of rawEntries) {
+      const lowerKey = entry.key.toLowerCase();
+      const isCover = lowerKey.includes('/capa') || lowerKey.includes('/capas') || lowerKey.includes('/cover') || lowerKey.includes('/covers');
+
+      if (isCover) {
+        const parts = entry.key.split('/');
+        const filenameWithExt = parts[parts.length - 1];
+        const baseName = filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.')) || filenameWithExt;
+
+        const exactKey = baseName.toLowerCase();
+        const cleanKey = baseName
+          .replace(/\s*\([^)]*\)/g, '')
+          .replace(/\s*\[[^\]]*\]/g, '')
+          .trim()
+          .toLowerCase();
+        const normKey = baseName.replace(/[^a-z0-9]/g, '').toLowerCase();
+
+        exactCoverMap.set(exactKey, entry.link);
+        if (cleanKey && !cleanCoverMap.has(cleanKey)) {
+          cleanCoverMap.set(cleanKey, entry.link);
+        }
+        if (normKey && !normCoverMap.has(normKey)) {
+          normCoverMap.set(normKey, entry.link);
+        }
+      }
+    }
+
+    // PASS 2: Index all ROMs and pair with covers
     let parsedCatalog = {};
     let romIndex = 1;
 
-    for (let line of lines) {
-      line = line.trim();
-      if (line.match(/^\d+\.\s+/)) {
-        currentKey = line.replace(/^\d+\.\s+/, '').split(' (')[0].trim();
-      } else if (line.startsWith('Link:')) {
-        currentLink = line.replace('Link:', '').trim();
+    for (const entry of rawEntries) {
+      const lowerKey = entry.key.toLowerCase();
+      const isCover = lowerKey.includes('/capa') || lowerKey.includes('/capas') || lowerKey.includes('/cover') || lowerKey.includes('/covers');
 
-        if (currentKey && currentLink && currentKey.includes('/ROMS/')) {
-          const parts = currentKey.split('/');
-          const consoleFolder = parts[0]; // e.g. MEGA or SNES
-          const filenameWithExt = parts[parts.length - 1];
-          const extension = filenameWithExt.split('.').pop().toLowerCase();
-          const baseName = filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.'));
+      if (!isCover && (lowerKey.includes('/rom') || lowerKey.includes('/roms') || lowerKey.match(/\.(nes|sfc|smc|md|smd|gen|chd|cue|iso|fds)$/i))) {
+        const parts = entry.key.split('/');
+        const topFolder = parts[0] ? parts[0].toUpperCase() : '';
+        const filenameWithExt = parts[parts.length - 1];
+        const extension = filenameWithExt.split('.').pop().toLowerCase();
+        const baseName = filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.')) || filenameWithExt;
 
-          // Ignore save files or image files accidentally placed in ROMs
-          if (extension === 'sav' || extension === 'png' || extension === 'jpg') {
-            currentKey = null;
-            currentLink = null;
-            continue;
-          }
-
-          let system = 'NES';
-          let ejsCore = 'nes';
-
-          if (consoleFolder === 'MEGA' || extension === 'md' || extension === 'smd') {
-            system = 'MEGADRIVE';
-            ejsCore = 'segaMD';
-          }
-
-          // Clean display title for UI
-          let cleanTitle = baseName
-            .replace(/\s*\(USA[^)]*\)/gi, '')
-            .replace(/\s*\(Europe[^)]*\)/gi, '')
-            .replace(/\s*\(Japan[^)]*\)/gi, '')
-            .replace(/\s*\(World[^)]*\)/gi, '')
-            .replace(/\s*\[[^\]]*\]/gi, '')
-            .trim();
-
-          if (!cleanTitle) cleanTitle = baseName;
-
-          // Generate unique ID per ROM entry to prevent overwriting
-          const id = `game-${romIndex}-${system.toLowerCase()}-${baseName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-
-          // Match exact cover URL from Pass 1
-          const exactKey = baseName.toLowerCase();
-          const cleanKey = baseName.replace(/\s*\([^)]*\)/g, '').replace(/\s*\[[^\]]*\]/g, '').trim().toLowerCase();
-
-          let coverUrl = coversMapExact.get(exactKey) || coversMapClean.get(cleanKey) || coversMapClean.get(cleanTitle.toLowerCase());
-
-          if (!coverUrl) {
-            let coverFolder = consoleFolder === 'MEGA' ? 'MEGA/CAPA' : 'SNES/CAPAS';
-            coverUrl = `${CLOUDFLARE_R2_BASE}/${coverFolder}/${encodeURIComponent(baseName)}.png`;
-          }
-
-          parsedCatalog[id] = {
-            id,
-            title: cleanTitle,
-            fullTitle: baseName,
-            system,
-            ejsCore,
-            romUrl: currentLink,
-            coverUrl,
-          };
-
-          romIndex++;
+        // Ignore metadata or save files
+        if (['sav', 'srm', 'txt', 'png', 'jpg', 'jpeg', 'webp', 'nfo', 'xml'].includes(extension)) {
+          continue;
         }
 
-        currentKey = null;
-        currentLink = null;
+        let system = 'NES';
+        let ejsCore = 'nes';
+
+        if (topFolder.includes('SNES') || extension === 'sfc' || extension === 'smc') {
+          system = 'SNES';
+          ejsCore = 'snes';
+        } else if (topFolder.includes('MEGA') || topFolder.includes('SEGA') || extension === 'md' || extension === 'smd' || extension === 'gen') {
+          system = 'MEGADRIVE';
+          ejsCore = 'segaMD';
+        } else if (topFolder.includes('PS1') || topFolder.includes('PSX') || (topFolder.includes('PS1') && (extension === 'chd' || extension === 'cue' || extension === 'pbp'))) {
+          system = 'PS1';
+          ejsCore = 'psx';
+        } else if (topFolder.includes('PS2') || (topFolder.includes('PS2') && (extension === 'chd' || extension === 'iso'))) {
+          system = 'PS2';
+          ejsCore = 'play';
+        } else if (topFolder.includes('NES') || extension === 'nes' || extension === 'fds') {
+          system = 'NES';
+          ejsCore = 'nes';
+        }
+
+        let cleanTitle = baseName
+          .replace(/\s*\(USA[^)]*\)/gi, '')
+          .replace(/\s*\(Europe[^)]*\)/gi, '')
+          .replace(/\s*\(Japan[^)]*\)/gi, '')
+          .replace(/\s*\(World[^)]*\)/gi, '')
+          .replace(/\s*\(Rev\s*\w+\)/gi, '')
+          .replace(/\s*\(Unl[^)]*\)/gi, '')
+          .replace(/\s*\(Proto[^)]*\)/gi, '')
+          .replace(/\s*\[[^\]]*\]/gi, '')
+          .replace(/\s*~\s*.*/gi, '')
+          .trim();
+
+        if (!cleanTitle) cleanTitle = baseName;
+
+        const exactKey = baseName.toLowerCase();
+        const cleanKey = cleanTitle.toLowerCase();
+        const normKey = baseName.replace(/[^a-z0-9]/g, '').toLowerCase();
+
+        let coverUrl = exactCoverMap.get(exactKey) || cleanCoverMap.get(cleanKey) || normCoverMap.get(normKey) || '';
+
+        // Guaranteed unique ID per ROM entry
+        const id = `game-${romIndex}-${system.toLowerCase()}-${baseName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+        parsedCatalog[id] = {
+          id,
+          title: cleanTitle,
+          fullTitle: baseName,
+          system,
+          ejsCore,
+          romUrl: entry.link,
+          coverUrl,
+        };
+
+        romIndex++;
       }
     }
 
     if (Object.keys(parsedCatalog).length > 0) {
       GAME_CATALOG = parsedCatalog;
       console.log(`===================================================`);
-      console.log(`✅ Sucesso! Catálogo dinâmico carregado com ${Object.keys(GAME_CATALOG).length} jogos!`);
+      console.log(`✅ Catálogo R2 indexado com sucesso: ${Object.keys(GAME_CATALOG).length} jogos carregados!`);
       console.log(`===================================================`);
     } else {
       loadFallbackCatalog();
     }
   } catch (err) {
-    console.error('❌ Erro ao ler arquivo TXT:', err.message);
+    console.error('❌ Erro ao ler manifesto TXT do R2:', err.message);
     loadFallbackCatalog();
   }
 }
@@ -176,15 +193,15 @@ function loadFallbackCatalog() {
     'nes-mario-25th': {
       id: 'nes-mario-25th',
       title: '25th Anniversary Super Mario Bros.',
-      fullTitle: '25th Anniversary Super Mario Bros. (Europe) (Promo, Virtual Console)',
+      fullTitle: '25th Anniversary Super Mario Bros. (Europe)',
       system: 'NES',
       ejsCore: 'nes',
-      romUrl: `${CLOUDFLARE_R2_BASE}/SNES/ROMS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).nes`,
-      coverUrl: `${CLOUDFLARE_R2_BASE}/SNES/CAPAS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe)%20(Promo%2C%20Virtual%20Console).png`,
+      romUrl: `${CLOUDFLARE_R2_BASE}/NES/ROMS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe).nes`,
+      coverUrl: `${CLOUDFLARE_R2_BASE}/NES/CAPAS/25th%20Anniversary%20Super%20Mario%20Bros.%20(Europe).png`,
     },
     'md-aladdin': {
       id: 'md-aladdin',
-      title: 'Disney\'s Aladdin (Mega Drive)',
+      title: 'Disney\'s Aladdin',
       fullTitle: 'Aladdin (USA)',
       system: 'MEGADRIVE',
       ejsCore: 'segaMD',
@@ -199,21 +216,8 @@ tryLoadFromLocalTxt();
 function sanitizeR2Url(rawUrl) {
   if (!rawUrl) return '';
   try {
-    const parsed = new URL(rawUrl);
-    const cleanPath = parsed.pathname
-      .split('/')
-      .map((segment) => {
-        if (!segment) return '';
-        try {
-          const decoded = decodeURIComponent(segment);
-          return encodeURIComponent(decoded);
-        } catch (e) {
-          return segment;
-        }
-      })
-      .join('/');
-
-    return `${parsed.protocol}//${parsed.host}${cleanPath}${parsed.search}`;
+    const decoded = decodeURIComponent(rawUrl);
+    return encodeURI(decoded);
   } catch (err) {
     return rawUrl;
   }
@@ -230,7 +234,7 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
   try {
     parsedUrl = new URL(cleanUrl);
   } catch (e) {
-    return res.status(400).json({ error: 'URL da mídia inválida.' });
+    return res.status(400).json({ error: 'URL inválida.' });
   }
 
   const client = parsedUrl.protocol === 'https:' ? https : http;
@@ -259,7 +263,7 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
     }
 
     if (remoteRes.statusCode < 200 || remoteRes.statusCode >= 400) {
-      return res.status(remoteRes.statusCode).json({ error: `Cloudflare R2 retornou HTTP ${remoteRes.statusCode}` });
+      return res.status(remoteRes.statusCode).json({ error: `Cloudflare R2 HTTP ${remoteRes.statusCode}` });
     }
 
     res.status(remoteRes.statusCode);
@@ -297,7 +301,7 @@ function proxyRomStream(targetUrl, req, res, maxRedirects = 5) {
 }
 
 app.get('/', (req, res) => {
-  return res.send(`🚀 RETROPLAY BACKEND ONLINE - CATÁLOGO COM ${Object.keys(GAME_CATALOG).length} JOGOS CARREGADOS!`);
+  return res.send(`🚀 RETROPLAY BACKEND ONLINE - CATÁLOGO COM ${Object.keys(GAME_CATALOG).length} JOGOS!`);
 });
 
 app.all(['/api/proxy-rom', '/api/proxy-rom/:filename'], (req, res) => {
@@ -332,7 +336,7 @@ app.get('/api/games', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`===================================================`);
-  console.log(`🚀 RETROPLAY BACKEND RUNNING ON PORT: ${PORT}`);
+  console.log(`🚀 RETROPLAY BACKEND SERVING ON PORT: ${PORT}`);
   console.log(`🎮 TOTAL DE JOGOS NO CATÁLOGO: ${Object.keys(GAME_CATALOG).length}`);
   console.log(`===================================================`);
 });
