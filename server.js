@@ -74,7 +74,6 @@ function tryLoadFromLocalTxt() {
       }
     }
 
-    // Function to extract target system from R2 path key
     function getSystemFromKey(keyUpper) {
       if (keyUpper.startsWith('NES/') || keyUpper.includes('/NES/')) return 'NES';
       if (keyUpper.startsWith('SNES/') || keyUpper.includes('/SNES/')) return 'SNES';
@@ -84,7 +83,6 @@ function tryLoadFromLocalTxt() {
       return 'NES';
     }
 
-    // Function to clean title preserving numbers (2, 3, II, III)
     function cleanGameTitle(rawTitle) {
       return rawTitle
         .replace(/\s*\((USA|Europe|Japan|World|En|Fr|De|Es|It|Pt|Sv|Nl|Rev\s*[\w\d]+|Unl|Proto|Promo|Virtual Console|Gluk Video|GameCube Edition|Pirate)[^)]*\)/gi, '')
@@ -110,12 +108,14 @@ function tryLoadFromLocalTxt() {
         const normKey = baseName.replace(/[^a-z0-9]/g, '').toLowerCase();
 
         const maps = systemCoverMaps[sys];
-        maps.exact.set(exactKey, entry.link);
-        if (cleanKey && !maps.clean.has(cleanKey)) {
-          maps.clean.set(cleanKey, entry.link);
-        }
-        if (normKey && !maps.norm.has(normKey)) {
-          maps.norm.set(normKey, entry.link);
+        if (maps) {
+          maps.exact.set(exactKey, entry.link);
+          if (cleanKey && !maps.clean.has(cleanKey)) {
+            maps.clean.set(cleanKey, entry.link);
+          }
+          if (normKey && !maps.norm.has(normKey)) {
+            maps.norm.set(normKey, entry.link);
+          }
         }
       }
     }
@@ -135,7 +135,6 @@ function tryLoadFromLocalTxt() {
         const extension = filenameWithExt.split('.').pop().toLowerCase();
         const baseName = filenameWithExt.substring(0, filenameWithExt.lastIndexOf('.')) || filenameWithExt;
 
-        // Ignore save states, text or system files
         if (['sav', 'srm', 'txt', 'png', 'jpg', 'jpeg', 'webp', 'nfo', 'xml'].includes(extension)) {
           continue;
         }
@@ -169,11 +168,9 @@ function tryLoadFromLocalTxt() {
         const cleanKey = cleanTitle.toLowerCase();
         const normKey = baseName.replace(/[^a-z0-9]/g, '').toLowerCase();
 
-        // Strict lookup inside system-isolated cover map
-        const sysMaps = systemCoverMaps[system];
+        const sysMaps = systemCoverMaps[system] || systemCoverMaps['NES'];
         let coverUrl = sysMaps.exact.get(exactKey) || sysMaps.clean.get(cleanKey) || sysMaps.norm.get(normKey) || '';
 
-        // Guaranteed unique ID per ROM entry
         const id = `game-${romIndex}-${system.toLowerCase()}-${baseName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
 
         parsedCatalog[id] = {
